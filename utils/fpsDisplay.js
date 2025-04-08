@@ -37,7 +37,6 @@ const drawFPS = (width, height, context) => {
   onePercentLowFps = Math.round(1000 / onePercentLowTime);
 
   // Draw FPS metrics on canvas
-  context.clearRect(width - 80, 0, 80, 40); // Clear previous FPS display
   context.fillStyle = 'rgba(255, 255, 255, 0.5)';
   context.fillRect(width - 80, 10, 80, 40);
   context.fillStyle = 'black';

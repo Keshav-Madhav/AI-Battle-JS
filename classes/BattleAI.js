@@ -74,15 +74,34 @@ export class BattleAI {
   executeBehavior(soldier, deltaTime) {
     switch (this.state) {
       case 'heal':
-        if (this.currentTarget && this.currentTarget.isAlive) {
-          const distance = soldier.distanceTo(this.currentTarget);
-          if (distance <= soldier.healingRange) {
-            this.currentTarget.health = Math.min(
-              this.currentTarget.maxHealth,
-              this.currentTarget.health + soldier.healAmount
+        const healableAllies = this.allSoldiers.filter(ally =>
+          ally.isAlive &&
+          ally.armyId === soldier.armyId &&
+          ally !== soldier &&
+          ally.health < ally.maxHealth &&
+          soldier.distanceTo(ally) <= soldier.healingRange
+        );
+
+        if (healableAllies.length > 0) {
+          for (const ally of healableAllies) {
+            soldier.heal(ally);
+          }
+        } else if (this.currentTarget && this.currentTarget.isAlive) {
+          soldier.moveTowards(this.currentTarget.x, this.currentTarget.y, deltaTime);
+        } else {
+          const woundedAllies = this.allSoldiers.filter(ally =>
+            ally.isAlive &&
+            ally.armyId === soldier.armyId &&
+            ally !== soldier &&
+            ally.health < ally.maxHealth
+          );
+
+          if (woundedAllies.length > 0) {
+            const closest = woundedAllies.reduce((a, b) =>
+              soldier.distanceTo(a) < soldier.distanceTo(b) ? a : b
             );
-          } else {
-            soldier.moveTowards(this.currentTarget.x, this.currentTarget.y, deltaTime);
+            this.currentTarget = closest;
+            soldier.moveTowards(closest.x, closest.y, deltaTime);
           }
         }
         break;      
