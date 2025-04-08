@@ -37,6 +37,7 @@ function renderSoldiers(soldiers) {
 }
 
 function renderSoldier(ctx, soldier) {
+  // Fill color for the main body
   ctx.fillStyle = soldier.color;
 
   if (soldier.type === 'melee') {
@@ -44,6 +45,9 @@ function renderSoldier(ctx, soldier) {
     ctx.beginPath();
     ctx.arc(soldier.x, soldier.y, soldier.size, 0, Math.PI * 2);
     ctx.fill();
+    ctx.lineWidth = 0.8;
+    ctx.strokeStyle = 'black';
+    ctx.stroke();
   } else if (soldier.type === 'archer') {
     // Draw triangle for archer
     ctx.beginPath();
@@ -52,14 +56,23 @@ function renderSoldier(ctx, soldier) {
     ctx.lineTo(soldier.x + soldier.size, soldier.y + soldier.size);
     ctx.closePath();
     ctx.fill();
+    ctx.lineWidth = 0.8;
+    ctx.strokeStyle = 'black';
+    ctx.stroke();
   } else if (soldier.type === 'healer') {
     // Draw plus for healer
     const size = soldier.size;
     ctx.fillRect(soldier.x - size / 4, soldier.y - size, size / 2, size * 2);
     ctx.fillRect(soldier.x - size, soldier.y - size / 4, size * 2, size / 2);
+
+    // Outline the plus
+    ctx.strokeStyle = 'black';
+    ctx.lineWidth = 0.8;
+    ctx.strokeRect(soldier.x - size / 4, soldier.y - size, size / 2, size * 2);
+    ctx.strokeRect(soldier.x - size, soldier.y - size / 4, size * 2, size / 2);
   }
 
-  // Draw health bar (unchanged)
+  // Health bar (unchanged)
   const healthPercentage = soldier.health / soldier.maxHealth;
   ctx.fillStyle = healthPercentage > 0.6 ? 'lime' : 
                   healthPercentage > 0.3 ? 'yellow' : 'red';

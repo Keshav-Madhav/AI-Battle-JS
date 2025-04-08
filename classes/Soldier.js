@@ -27,6 +27,7 @@ export class Soldier {
       this.attackRange = 50;
       this.speed = 40;
       this.healAmount = 10;
+      this.healingRange = 30;
     }
 
     this.maxHealth = this.health;

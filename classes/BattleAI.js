@@ -24,7 +24,7 @@ export class BattleAI {
   makeDecision(soldier) {
     const enemies = this.allSoldiers.filter(s => s.isAlive && s.armyId !== this.armyId);
     const allies = this.allSoldiers.filter(s => s.isAlive && s.armyId === this.armyId && s !== soldier);
-
+  
     if (soldier.type === 'healer') {
       const woundedAlly = allies.find(ally => ally.health < ally.maxHealth);
       if (woundedAlly) {
@@ -33,42 +33,59 @@ export class BattleAI {
         return;
       }
     }
-
+  
     if (enemies.length === 0) {
       this.state = 'idle';
       this.currentTarget = null;
       return;
     }
-
+  
+    // Check if any melee is targeting this archer
+    if (soldier.type === 'archer') {
+      const pursuingMelee = enemies.find(e => e.type === 'melee' && e.currentTarget === soldier);
+      if (pursuingMelee) {
+        this.currentTarget = pursuingMelee;
+        this.state = 'shoot-flee';
+        return;
+      }
+    }
+  
     // Prioritize closest and weakest enemy
     this.currentTarget = enemies.reduce((closest, enemy) => {
       const dist = soldier.distanceTo(enemy);
       const score = dist - (enemy.health * 0.5); // closer + lower health = better
       return score < closest.score ? { soldier: enemy, score } : closest;
     }, { soldier: null, score: Infinity }).soldier;
-
+  
     const distance = soldier.distanceTo(this.currentTarget);
     if (soldier.health < soldier.maxHealth * 0.3) {
       this.state = 'flee';
     } else if (distance <= soldier.attackRange) {
       this.state = 'attack';
+      this.broadcastTarget(soldier, this.currentTarget);
     } else if (distance <= soldier.visionRange) {
       this.state = 'seek';
+      this.broadcastTarget(soldier, this.currentTarget);
     } else {
       this.state = 'wander';
     }
-  }
+  }  
 
   executeBehavior(soldier, deltaTime) {
     switch (this.state) {
       case 'heal':
         if (this.currentTarget && this.currentTarget.isAlive) {
-          this.currentTarget.health = Math.min(
-            this.currentTarget.maxHealth,
-            this.currentTarget.health + soldier.healAmount
-          );
+          const distance = soldier.distanceTo(this.currentTarget);
+          if (distance <= soldier.healingRange) {
+            this.currentTarget.health = Math.min(
+              this.currentTarget.maxHealth,
+              this.currentTarget.health + soldier.healAmount
+            );
+          } else {
+            soldier.moveTowards(this.currentTarget.x, this.currentTarget.y, deltaTime);
+          }
         }
-        break;
+        break;      
 
       case 'seek':
         if (this.currentTarget) {
@@ -89,6 +106,31 @@ export class BattleAI {
 
       case 'flee':
         this.fleeFromThreat(soldier, deltaTime);
+        break;
+
+      case 'shoot-flee':
+        if (this.currentTarget && this.currentTarget.isAlive) {
+          const distance = soldier.distanceTo(this.currentTarget);
+          const halfSpeed = soldier.speed * 0.5;
+          const halfCooldown = soldier.attackCooldown * 2; // reduce firerate
+
+          if (distance <= soldier.attackRange) {
+            if (!soldier.lastAttackTime) soldier.lastAttackTime = 0;
+            soldier.lastAttackTime += deltaTime;
+            if (soldier.lastAttackTime >= halfCooldown) {
+              soldier.attack(this.currentTarget);
+              soldier.lastAttackTime = 0;
+            }
+          }
+
+          // Move away while shooting
+          const dx = soldier.x - this.currentTarget.x;
+          const dy = soldier.y - this.currentTarget.y;
+          const mag = Math.sqrt(dx * dx + dy * dy);
+          const fleeX = soldier.x + (dx / mag) * 100;
+          const fleeY = soldier.y + (dy / mag) * 100;
+          soldier.moveTowards(fleeX, fleeY, deltaTime * 0.5); // half speed
+        }
         break;
 
       case 'wander':
@@ -112,17 +154,18 @@ export class BattleAI {
            soldier.distanceTo(s) < soldier.visionRange
     );
   
-    // 🏥 Seek nearby healers if any
+    // Seek nearby healers if any
     const nearbyHealers = nearbyAllies.filter(ally => ally.type === 'healer');
     if (nearbyHealers.length > 0) {
-      // Choose closest healer
       const closestHealer = nearbyHealers.reduce((closest, healer) => {
         const dist = soldier.distanceTo(healer);
         return dist < closest.dist ? { healer, dist } : closest;
-      }, { healer: null, dist: Infinity }).healer;
-  
-      if (closestHealer) {
-        soldier.moveTowards(closestHealer.x, closestHealer.y, deltaTime);
+      }, { healer: null, dist: Infinity });
+
+      if (closestHealer && closestHealer.dist > closestHealer.healer.healingRange - 5) {
+        soldier.moveTowards(closestHealer.healer.x, closestHealer.healer.y, deltaTime);
+        return;
+      } else {
         return;
       }
     }
@@ -179,4 +222,33 @@ export class BattleAI {
 
     soldier.moveTowards(this.wanderTarget.x, this.wanderTarget.y, deltaTime);
   }
+
+  broadcastTarget(soldier, target) {
+    const baseAlertRange = 120;
+    const alertRange = soldier.type === 'archer' ? baseAlertRange * 1.8 : baseAlertRange;
+  
+    const nearbyAllies = this.allSoldiers.filter(s =>
+      s !== soldier &&
+      s.isAlive &&
+      s.armyId === soldier.armyId &&
+      soldier.distanceTo(s) <= alertRange
+    );
+  
+    for (const ally of nearbyAllies) {
+      if (!ally.ai || ally.ai.state === 'flee' || ally.ai.state === 'heal') continue;
+  
+      const isArcher = ally.type === 'archer';
+      const isIdleOrWandering = ally.ai.state === 'wander' || ally.ai.state === 'idle';
+      const shouldUpdate =
+        !ally.ai.currentTarget || isIdleOrWandering || isArcher;
+  
+      if (shouldUpdate) {
+        ally.ai.currentTarget = target;
+        const dist = ally.distanceTo(target);
+        ally.ai.state = dist <= ally.attackRange ? 'attack'
+                       : dist <= ally.visionRange ? 'seek'
+                       : 'wander';
+      }
+    }
+  }  
 }
