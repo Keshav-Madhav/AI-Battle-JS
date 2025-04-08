@@ -1,19 +1,36 @@
 import { BattleAI } from './BattleAI.js';
 
 export class Soldier {
-  constructor(x, y, armyId, color, allSoldiers) {
+  constructor(x, y, armyId, color, allSoldiers, type) {
     this.x = x;
     this.y = y;
     this.armyId = armyId;
     this.color = color;
+    this.type = type; // 'melee', 'archer', or 'healer'
     this.ai = new BattleAI(allSoldiers, armyId);
     this.isAlive = true;
-    this.health = 100;
-    this.maxHealth = 100;
-    this.attackDamage = 10;
-    this.attackRange = 20;
-    this.visionRange = 100;
-    this.speed = 50;
+
+    // Adjust stats based on type
+    if (type === 'melee') {
+      this.health = 150;
+      this.attackDamage = 20;
+      this.attackRange = 15;
+      this.speed = 40;
+    } else if (type === 'archer') {
+      this.health = 100;
+      this.attackDamage = 15;
+      this.attackRange = 100;
+      this.speed = 50;
+    } else if (type === 'healer') {
+      this.health = 80;
+      this.attackDamage = 0;
+      this.attackRange = 50;
+      this.speed = 40;
+      this.healAmount = 10;
+    }
+
+    this.maxHealth = this.health;
+    this.visionRange = 150;
     this.size = 4;
     this.attackCooldown = 0;
     this.attackRate = 1;

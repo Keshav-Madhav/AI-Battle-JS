@@ -38,10 +38,28 @@ function renderSoldiers(soldiers) {
 
 function renderSoldier(ctx, soldier) {
   ctx.fillStyle = soldier.color;
-  ctx.beginPath();
-  ctx.arc(soldier.x, soldier.y, soldier.size, 0, Math.PI * 2);
-  ctx.fill();
 
+  if (soldier.type === 'melee') {
+    // Draw circle for melee
+    ctx.beginPath();
+    ctx.arc(soldier.x, soldier.y, soldier.size, 0, Math.PI * 2);
+    ctx.fill();
+  } else if (soldier.type === 'archer') {
+    // Draw triangle for archer
+    ctx.beginPath();
+    ctx.moveTo(soldier.x, soldier.y - soldier.size);
+    ctx.lineTo(soldier.x - soldier.size, soldier.y + soldier.size);
+    ctx.lineTo(soldier.x + soldier.size, soldier.y + soldier.size);
+    ctx.closePath();
+    ctx.fill();
+  } else if (soldier.type === 'healer') {
+    // Draw plus for healer
+    const size = soldier.size;
+    ctx.fillRect(soldier.x - size / 4, soldier.y - size, size / 2, size * 2);
+    ctx.fillRect(soldier.x - size, soldier.y - size / 4, size * 2, size / 2);
+  }
+
+  // Draw health bar (unchanged)
   const healthPercentage = soldier.health / soldier.maxHealth;
   ctx.fillStyle = healthPercentage > 0.6 ? 'lime' : 
                   healthPercentage > 0.3 ? 'yellow' : 'red';

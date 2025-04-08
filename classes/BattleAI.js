@@ -23,6 +23,17 @@ export class BattleAI {
 
   makeDecision(soldier) {
     const enemies = this.allSoldiers.filter(s => s.isAlive && s.armyId !== this.armyId);
+    const allies = this.allSoldiers.filter(s => s.isAlive && s.armyId === this.armyId && s !== soldier);
+
+    if (soldier.type === 'healer') {
+      const woundedAlly = allies.find(ally => ally.health < ally.maxHealth);
+      if (woundedAlly) {
+        this.state = 'heal';
+        this.currentTarget = woundedAlly;
+        return;
+      }
+    }
+
     if (enemies.length === 0) {
       this.state = 'idle';
       this.currentTarget = null;
@@ -50,6 +61,15 @@ export class BattleAI {
 
   executeBehavior(soldier, deltaTime) {
     switch (this.state) {
+      case 'heal':
+        if (this.currentTarget && this.currentTarget.isAlive) {
+          this.currentTarget.health = Math.min(
+            this.currentTarget.maxHealth,
+            this.currentTarget.health + soldier.healAmount
+          );
+        }
+        break;
+
       case 'seek':
         if (this.currentTarget) {
           soldier.moveTowards(this.currentTarget.x, this.currentTarget.y, deltaTime);
@@ -89,18 +109,32 @@ export class BattleAI {
   
     const nearbyAllies = this.allSoldiers.filter(
       s => s !== soldier && s.isAlive && s.armyId === soldier.armyId &&
-           soldier.distanceTo(s) < soldier.visionRange &&
-           s.ai?.state === 'flee' // same fleeing behavior
+           soldier.distanceTo(s) < soldier.visionRange
     );
   
+    // 🏥 Seek nearby healers if any
+    const nearbyHealers = nearbyAllies.filter(ally => ally.type === 'healer');
+    if (nearbyHealers.length > 0) {
+      // Choose closest healer
+      const closestHealer = nearbyHealers.reduce((closest, healer) => {
+        const dist = soldier.distanceTo(healer);
+        return dist < closest.dist ? { healer, dist } : closest;
+      }, { healer: null, dist: Infinity }).healer;
+  
+      if (closestHealer) {
+        soldier.moveTowards(closestHealer.x, closestHealer.y, deltaTime);
+        return;
+      }
+    }
+  
+    // 👇 Rest of the flee logic continues if no healer found
     const chaserCount = nearbyEnemies.length;
-    const allyFleeCount = nearbyAllies.length;
+    const allyFleeCount = nearbyAllies.filter(s => s.ai?.state === 'flee').length;
     const criticalHealth = soldier.maxHealth * 0.1;
   
     if (soldier.health <= criticalHealth && chaserCount >= 2) {
-      // Flip chance increases with more chasers, decreases with more fleeing allies
       let baseFlipChance = 0.3 + 0.1 * (chaserCount - 2);
-      const allyPenalty = Math.min(allyFleeCount * 0.15, 0.5); // Cap penalty at 50%
+      const allyPenalty = Math.min(allyFleeCount * 0.15, 0.5);
       const finalFlipChance = baseFlipChance * (1 - allyPenalty);
   
       if (Math.random() < finalFlipChance) {
@@ -120,18 +154,18 @@ export class BattleAI {
   
     const avgEnemyX = nearbyEnemies.reduce((sum, e) => sum + e.x, 0) / nearbyEnemies.length || soldier.x;
     const avgEnemyY = nearbyEnemies.reduce((sum, e) => sum + e.y, 0) / nearbyEnemies.length || soldier.y;
-
+  
     const dx = soldier.x - avgEnemyX;
     const dy = soldier.y - avgEnemyY;
     const distance = Math.sqrt(dx * dx + dy * dy);
     const safeDist = 150;
-
-    if (distance > safeDist) return; // already safe
-
+  
+    if (distance > safeDist) return;
+  
     const fleeX = soldier.x + (dx / distance) * 100;
     const fleeY = soldier.y + (dy / distance) * 100;
     soldier.moveTowards(fleeX, fleeY, deltaTime);
-  }    
+  }   
 
   handleWandering(soldier, deltaTime) {
     if (!this.wanderTarget || Math.random() < 0.01) {
