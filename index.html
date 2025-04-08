@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Army Battles</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: #111;
+        }
+        canvas {
+            display: block;
+        }
+        #controls {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 10px;
+            border-radius: 5px;
+            color: white;
+            font-family: Arial, sans-serif;
+        }
+        button, input {
+            margin: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div id="controls">
+        <div>
+            <label>Army Count: <input type="number" id="armyCount" value="4" min="2" max="10"></label>
+            <label>Soldiers per Army: <input type="number" id="soldiersPerArmy" value="500" min="100" max="2000"></label>
+        </div>
+        <div>
+            <label>Battle Speed: <input type="range" id="battleSpeed" min="0.5" max="2" step="0.1" value="1"></label>
+        </div>
+        <button id="startBtn">Start Simulation</button>
+        <button id="resetBtn">Reset</button>
+        <div id="stats"></div>
+    </div>
+    <canvas id="canvas"></canvas>
+    
+    <script src="./variables/constAndVars.js"></script>
+    <script src="./variables/domElements.js"></script>
+    <script src="main.js" type="module"></script>
+</body>
+</html>
