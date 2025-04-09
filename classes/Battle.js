@@ -298,7 +298,7 @@ export class Battle {
           
           // Rage text
           ctx.fillStyle = 'white';
-          ctx.font = 'bold 12px Arial';
+          ctx.font = 'bold 10px Arial';
           ctx.textAlign = 'center';
           ctx.fillText('RAGE!', soldier.x, soldier.y - soldier.size - 12);
           

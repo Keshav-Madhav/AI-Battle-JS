@@ -59,6 +59,10 @@ export class Soldier {
     this.maxHealth = this.health;
     this.attackCooldown = 0;
     this.attackRate = 1;
+    
+    // Add animation properties
+    this.pulseSize = 0;
+    this.pulseDirection = 1;
   }
 
   update(deltaTime, allSoldiers) {
@@ -77,6 +81,20 @@ export class Soldier {
         this.lastDamageDealt = 0;
         this.recentlyHealedTargets = [];
       }
+    }
+    
+    // Update pulse animation for healers and berzerkers
+    if (this.type === 'healer' && this.isHealing || this.type === 'brezerker' && this.isAttacking) {
+      this.pulseSize += deltaTime * 3 * this.pulseDirection;
+      if (this.pulseSize > 1) {
+        this.pulseSize = 1;
+        this.pulseDirection = -1;
+      } else if (this.pulseSize < 0) {
+        this.pulseSize = 0;
+        this.pulseDirection = 1;
+      }
+    } else {
+      this.pulseSize = 0;
     }
 
     this.ai.update(this, deltaTime, allSoldiers);
@@ -142,90 +160,184 @@ export class Soldier {
   }
 
   drawSoldier(ctx) {
-    // Draw healing range if healer is healing
+    // Draw healing aura if healer is healing
     if (this.isHealing && this.type === 'healer') {
+      const gradient = ctx.createRadialGradient(
+        this.x, this.y, 0,
+        this.x, this.y, this.healingRange
+      );
+      gradient.addColorStop(0, 'rgba(100, 255, 100, 0.2)');
+      gradient.addColorStop(1, 'rgba(100, 255, 100, 0)');
+      
       ctx.beginPath();
-      ctx.strokeStyle = 'rgba(0, 255, 0, 0.2)';
-      ctx.lineWidth = 1;
       ctx.arc(this.x, this.y, this.healingRange, 0, Math.PI * 2);
-      ctx.stroke();
+      ctx.fillStyle = gradient;
+      ctx.fill();
     }
 
-    if (this.isAttacking && this.type === 'brezerker') {
+    // Apply color adjustments based on unit type
+    let fillColor = this.color;
+    let strokeColor = 'rgba(0, 0, 0, 0.7)';
+    let lineWidth = 1;
+    
+    // Create base and highlight colors for each unit
+    const baseColor = this.color;
+    const highlightColor = this.getLighterColor(this.color, 30);
+    const shadowColor = this.getDarkerColor(this.color, 30);
+
+    // Melee - Simple circle with subtle gradient
+    if (this.type === 'melee') {
+      const gradient = ctx.createRadialGradient(
+        this.x - this.size/3, this.y - this.size/3, 0,
+        this.x, this.y, this.size
+      );
+      gradient.addColorStop(0, highlightColor);
+      gradient.addColorStop(1, baseColor);
+      
       ctx.beginPath();
-      ctx.arc(this.x, this.y, this.attackRange, 0, Math.PI * 2);
-      ctx.strokeStyle = 'rgba(255, 0, 0, 0.3)';
-      ctx.lineWidth = 2;
+      ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+      ctx.fillStyle = gradient;
+      ctx.fill();
+      ctx.lineWidth = lineWidth;
+      ctx.strokeStyle = strokeColor;
       ctx.stroke();
       
-      // Blood splatter effect
-      for (let i = 0; i < 5; i++) {
-        const angle = Math.random() * Math.PI * 2;
-        const dist = this.size + Math.random() * this.attackRange/2;
+      // Simple indicator of melee type - small dot in center
+      ctx.beginPath();
+      ctx.arc(this.x, this.y, this.size * 0.3, 0, Math.PI * 2);
+      ctx.fillStyle = shadowColor;
+      ctx.fill();
+    } 
+    // Archer - Improved triangle
+    else if (this.type === 'archer') {
+      // Draw triangle
+      ctx.beginPath();
+      ctx.moveTo(this.x, this.y - this.size * 1.2);
+      ctx.lineTo(this.x - this.size, this.y + this.size * 0.6);
+      ctx.lineTo(this.x + this.size, this.y + this.size * 0.6);
+      ctx.closePath();
+      
+      // Create gradient for triangle
+      const gradient = ctx.createLinearGradient(
+        this.x, this.y - this.size, 
+        this.x, this.y + this.size
+      );
+      gradient.addColorStop(0, highlightColor);
+      gradient.addColorStop(1, baseColor);
+      
+      ctx.fillStyle = gradient;
+      ctx.fill();
+      ctx.lineWidth = lineWidth;
+      ctx.strokeStyle = strokeColor;
+      ctx.stroke();
+      
+      // Add a small dot to indicate bow position
+      ctx.beginPath();
+      ctx.arc(this.x, this.y, this.size * 0.3, 0, Math.PI * 2);
+      ctx.fillStyle = shadowColor;
+      ctx.fill();
+    } 
+    // Healer - Cross with glowing effect
+    else if (this.type === 'healer') {
+      const s = this.size;
+      const pulseGlow = this.isHealing ? this.pulseSize * 3 : 0;
+      
+      // Base cross
+      ctx.fillStyle = baseColor;
+      ctx.fillRect(this.x - s / 3, this.y - s, s * 2/3, s * 2);
+      ctx.fillRect(this.x - s, this.y - s / 3, s * 2, s * 2/3);
+      
+      // Highlight on top edges
+      ctx.fillStyle = highlightColor;
+      ctx.fillRect(this.x - s / 3, this.y - s, s * 2/3, s * 0.3);
+      ctx.fillRect(this.x - s, this.y - s / 3, s * 0.3, s * 2/3);
+      
+      // Border
+      ctx.strokeStyle = strokeColor;
+      ctx.lineWidth = lineWidth;
+      ctx.strokeRect(this.x - s / 3, this.y - s, s * 2/3, s * 2);
+      ctx.strokeRect(this.x - s, this.y - s / 3, s * 2, s * 2/3);
+      
+      // Healing glow effect
+      if (this.isHealing) {
         ctx.beginPath();
-        ctx.arc(
-          this.x + Math.cos(angle) * dist,
-          this.y + Math.sin(angle) * dist,
-          1 + Math.random() * 2,
-          0, Math.PI * 2
-        );
-        ctx.fillStyle = 'rgba(200, 0, 0, 0.7)';
+        ctx.arc(this.x, this.y, s + pulseGlow, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(100, 255, 100, ${0.2 * (1 - this.pulseSize)})`;
         ctx.fill();
       }
-    }
-
-    // Main body
-    ctx.fillStyle = this.color;
-
-    if (this.type === 'melee') {
-      ctx.beginPath();
-      ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.lineWidth = 0.8;
-      ctx.strokeStyle = 'black';
-      ctx.stroke();
-    } else if (this.type === 'archer') {
-      ctx.beginPath();
-      ctx.moveTo(this.x, this.y - this.size);
-      ctx.lineTo(this.x - this.size, this.y + this.size);
-      ctx.lineTo(this.x + this.size, this.y + this.size);
-      ctx.closePath();
-      ctx.fill();
-      ctx.lineWidth = 0.8;
-      ctx.strokeStyle = 'black';
-      ctx.stroke();
-    } else if (this.type === 'healer') {
-      const s = this.size;
-      ctx.fillRect(this.x - s / 4, this.y - s, s / 2, s * 2);
-      ctx.fillRect(this.x - s, this.y - s / 4, s * 2, s / 2);
-      ctx.strokeStyle = 'black';
-      ctx.lineWidth = 0.8;
-      ctx.strokeRect(this.x - s / 4, this.y - s, s / 2, s * 2);
-      ctx.strokeRect(this.x - s, this.y - s / 4, s * 2, s / 2);
-    } else if (this.type === 'brezerker') {
-      ctx.beginPath();
-      ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.lineWidth = 1;
-      ctx.strokeStyle = 'black';
-      ctx.stroke();
-
-      // transparent center for donut effect
-      ctx.beginPath();
-      ctx.arc(this.x, this.y, this.size*0.4, 0, Math.PI * 2);
-      ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
-      ctx.fill();
-      ctx.lineWidth = 0.5;
-      ctx.strokeStyle = 'black';
-      ctx.stroke();
-    } else if (this.type === 'tank') {
-      // Draw shield shape instead of circle
-      ctx.beginPath();
+    } 
+    // Berzerker - Spiked circle with rage effect
+    else if (this.type === 'brezerker') {
+      const spikes = 8;
+      const outerRadius = this.size + (this.isAttacking ? this.pulseSize * 2 : 0);
+      const innerRadius = this.size * 0.6;
       
+      // Draw spiked circle
+      ctx.beginPath();
+      for (let i = 0; i < spikes * 2; i++) {
+        const radius = i % 2 === 0 ? outerRadius : innerRadius;
+        const angle = (Math.PI * 2 * i) / (spikes * 2);
+        const x = this.x + Math.cos(angle) * radius;
+        const y = this.y + Math.sin(angle) * radius;
+        
+        if (i === 0) {
+          ctx.moveTo(x, y);
+        } else {
+          ctx.lineTo(x, y);
+        }
+      }
+      ctx.closePath();
+      
+      // Create gradient for berzerker
+      const gradient = ctx.createRadialGradient(
+        this.x, this.y, innerRadius,
+        this.x, this.y, outerRadius
+      );
+      
+      if (this.isAttacking) {
+        gradient.addColorStop(0, 'rgba(255, 50, 50, 0.9)');
+        gradient.addColorStop(0.7, baseColor);
+        gradient.addColorStop(1, highlightColor);
+      } else {
+        gradient.addColorStop(0, shadowColor);
+        gradient.addColorStop(0.7, baseColor);
+        gradient.addColorStop(1, highlightColor);
+      }
+      
+      ctx.fillStyle = gradient;
+      ctx.fill();
+      ctx.lineWidth = lineWidth;
+      ctx.strokeStyle = strokeColor;
+      ctx.stroke();
+      
+      // Rage effect
+      if (this.isAttacking) {
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, outerRadius + 2, 0, Math.PI * 2);
+        ctx.strokeStyle = `rgba(255, 0, 0, ${0.5 * (1 - this.pulseSize)})`;
+        ctx.lineWidth = 1 + this.pulseSize;
+        ctx.stroke();
+      }
+    } 
+    // Tank - Shield shape with improved details
+    else if (this.type === 'tank') {
       // Shield shape parameters
       const shieldWidth = this.size * 2;
       const shieldHeight = this.size * 2.5;
       const topCurve = this.size * 0.8;
+      
+      // Create gradient for shield
+      const gradient = ctx.createLinearGradient(
+        this.x - shieldWidth/2, this.y,
+        this.x + shieldWidth/2, this.y
+      );
+      gradient.addColorStop(0, shadowColor);
+      gradient.addColorStop(0.3, baseColor);
+      gradient.addColorStop(0.7, baseColor);
+      gradient.addColorStop(1, highlightColor);
+      
+      // Draw shield shape
+      ctx.beginPath();
       
       // Start at top center of shield
       ctx.moveTo(this.x, this.y - shieldHeight/2);
@@ -261,68 +373,146 @@ export class Soldier {
       );
       
       // Fill and outline the shield
-      ctx.fillStyle = this.color;
+      ctx.fillStyle = gradient;
       ctx.fill();
       ctx.lineWidth = 1.5;
-      ctx.strokeStyle = 'black';
+      ctx.strokeStyle = strokeColor;
+      ctx.stroke();
+      
+      // Add emblem to center of shield
+      ctx.beginPath();
+      ctx.arc(this.x, this.y - shieldHeight/6, this.size * 0.6, 0, Math.PI * 2);
+      ctx.fillStyle = shadowColor;
+      ctx.fill();
+      ctx.lineWidth = 0.5;
+      ctx.strokeStyle = highlightColor;
       ctx.stroke();
     }
 
-    // Health bar
+    // Health bar with improved appearance
     const healthPercentage = this.health / this.maxHealth;
-    ctx.fillStyle = healthPercentage > 0.6 ? 'lime' :
-                    healthPercentage > 0.3 ? 'yellow' : 'red';
-
+    
+    // Create health bar gradient based on health percentage
     const barWidth = this.size * 2;
     const barHeight = 2;
-
-    ctx.fillRect(
-      this.x - barWidth / 2,
-      this.y - this.size - 5,
-      barWidth * healthPercentage,
-      barHeight
-    );
-
+    const barX = this.x - barWidth / 2;
+    const barY = this.y - this.size - 5;
+    
+    // Health bar background (slightly transparent black)
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
+    ctx.fillRect(barX, barY, barWidth, barHeight);
+    
+    // Health bar foreground with gradient
+    const healthGradient = ctx.createLinearGradient(barX, barY, barX + barWidth, barY);
+    
+    if (healthPercentage > 0.6) {
+      healthGradient.addColorStop(0, '#00ff00');
+      healthGradient.addColorStop(1, '#80ff80');
+    } else if (healthPercentage > 0.3) {
+      healthGradient.addColorStop(0, '#ffff00');
+      healthGradient.addColorStop(1, '#ffff80');
+    } else {
+      healthGradient.addColorStop(0, '#ff0000');
+      healthGradient.addColorStop(1, '#ff8080');
+    }
+    
+    ctx.fillStyle = healthGradient;
+    ctx.fillRect(barX, barY, barWidth * healthPercentage, barHeight);
+    
+    // Add thin white outline to health bar
     ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
-    ctx.strokeRect(
-      this.x - barWidth / 2,
-      this.y - this.size - 5,
-      barWidth,
-      barHeight
-    );
+    ctx.lineWidth = 0.5;
+    ctx.strokeRect(barX, barY, barWidth, barHeight);
 
-    // VISUALS
+    // VISUALS FOR ATTACKS/HEALING
     if (this.isAttacking && this.target) {
       if (this.type === 'archer') {
+        // Draw arrow projectile
         ctx.beginPath();
         ctx.moveTo(this.x, this.y);
         ctx.lineTo(this.target.x, this.target.y);
-        ctx.strokeStyle = this.color;
+        
+        // Create gradient for arrow
+        const arrowGradient = ctx.createLinearGradient(this.x, this.y, this.target.x, this.target.y);
+        arrowGradient.addColorStop(0, this.color);
+        arrowGradient.addColorStop(1, 'rgba(255, 255, 255, 0.7)');
+        
+        ctx.strokeStyle = arrowGradient;
         ctx.lineWidth = 1;
         ctx.stroke();
 
-        ctx.fillStyle = this.color;
-        ctx.font = '10px Arial';
-        ctx.fillText(`-${this.lastDamageDealt}`, (this.x + this.target.x) / 2, (this.y + this.target.y) / 2);
-      }
-
-      if (this.type === 'melee') {
-        ctx.beginPath();
-        ctx.arc(this.x, this.y, this.size + 2, 0, Math.PI * 2);
-        ctx.strokeStyle = 'red';
-        ctx.lineWidth = 0.5;
-        ctx.stroke();
+        // Add damage text with drop shadow
+        ctx.shadowColor = 'rgba(0, 0, 0, 0.5)';
+        ctx.shadowBlur = 2;
+        ctx.shadowOffsetX = 1;
+        ctx.shadowOffsetY = 1;
+        ctx.fillStyle = 'white';
+        ctx.font = 'bold 10px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText(`-${this.lastDamageDealt}`, (this.x + this.target.x) / 2, (this.y + this.target.y) / 2 - 5);
+        ctx.shadowColor = 'transparent';
       }
     }
 
     if (this.isHealing) {
       for (const target of this.recentlyHealedTargets) {
+        // Create subtle healing effect
         ctx.beginPath();
         ctx.arc(target.x, target.y, target.size + 3, 0, Math.PI * 2);
-        ctx.strokeStyle = 'lime';
-        ctx.lineWidth = 0.5;
-        ctx.stroke();
+        const healGradient = ctx.createRadialGradient(
+          target.x, target.y, target.size,
+          target.x, target.y, target.size + 3
+        );
+        healGradient.addColorStop(0, 'rgba(100, 255, 100, 0.5)');
+        healGradient.addColorStop(1, 'rgba(100, 255, 100, 0)');
+        
+        ctx.fillStyle = healGradient;
+        ctx.fill();
+        
+        // Add healing amount text
+        ctx.fillStyle = 'rgba(100, 255, 100, 0.8)';
+        ctx.font = 'bold 10px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText(`+${this.healAmount}`, target.x, target.y - target.size - 5);
       }
     }
+  }
+  
+  // Helper methods for color manipulation
+  getLighterColor(color, percent) {
+    return this.adjustColor(color, percent);
+  }
+  
+  getDarkerColor(color, percent) {
+    return this.adjustColor(color, -percent);
+  }
+  
+  adjustColor(color, percent) {
+    // Convert color to RGB if it's in hex format
+    let r, g, b;
+    
+    if (color.startsWith('#')) {
+      // Handle hex colors
+      const hex = color.substring(1);
+      r = parseInt(hex.substr(0, 2), 16);
+      g = parseInt(hex.substr(2, 2), 16);
+      b = parseInt(hex.substr(4, 2), 16);
+    } else if (color.startsWith('rgb')) {
+      // Handle rgb/rgba colors
+      const matches = color.match(/\d+/g);
+      r = parseInt(matches[0]);
+      g = parseInt(matches[1]);
+      b = parseInt(matches[2]);
+    } else {
+      // Default fallback
+      return color;
+    }
+    
+    // Adjust color
+    r = Math.max(0, Math.min(255, r + Math.floor(percent * 2.55)));
+    g = Math.max(0, Math.min(255, g + Math.floor(percent * 2.55)));
+    b = Math.max(0, Math.min(255, b + Math.floor(percent * 2.55)));
+    
+    return `rgb(${r}, ${g}, ${b})`;
   }
 }
