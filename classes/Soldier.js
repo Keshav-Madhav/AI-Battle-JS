@@ -6,7 +6,7 @@ export class Soldier {
     this.y = y;
     this.armyId = armyId;
     this.color = color;
-    this.type = type; // 'melee', 'archer', or 'healer'
+    this.type = type;
     this.ai = new BattleAI(allSoldiers, armyId);
     this.isAlive = true;
     this.isAttacking = false;
@@ -15,7 +15,8 @@ export class Soldier {
     this.target = null;
     this.lastDamageDealt = 0;
     this.recentlyHealedTargets = [];
-
+    this.size = 4;
+    
     // Adjust stats based on type
     if (type === 'melee') {
       this.health = 150;
@@ -43,10 +44,19 @@ export class Soldier {
       this.attackRange = 10;
       this.speed = 50;
       this.visionRange = 75;
+      this.size = 6;
+    } else if (type === 'tank') {
+      this.health = 400;
+      this.attackDamage = 10;
+      this.attackRange = 20;
+      this.speed = 30;
+      this.visionRange = 75;
+      this.protectionRange = 100;
+      this.tauntRange = 80;
+      this.size = 5;
     }
 
     this.maxHealth = this.health;
-    this.size = 4;
     this.attackCooldown = 0;
     this.attackRate = 1;
   }
@@ -194,7 +204,7 @@ export class Soldier {
       ctx.strokeRect(this.x - s, this.y - s / 4, s * 2, s / 2);
     } else if (this.type === 'brezerker') {
       ctx.beginPath();
-      ctx.arc(this.x, this.y, this.size*1.5, 0, Math.PI * 2);
+      ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
       ctx.fill();
       ctx.lineWidth = 1;
       ctx.strokeStyle = 'black';
@@ -202,13 +212,61 @@ export class Soldier {
 
       // transparent center for donut effect
       ctx.beginPath();
-      ctx.arc(this.x, this.y, this.size*0.5, 0, Math.PI * 2);
+      ctx.arc(this.x, this.y, this.size*0.4, 0, Math.PI * 2);
       ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
       ctx.fill();
       ctx.lineWidth = 0.5;
       ctx.strokeStyle = 'black';
       ctx.stroke();
-  }
+    } else if (this.type === 'tank') {
+      // Draw shield shape instead of circle
+      ctx.beginPath();
+      
+      // Shield shape parameters
+      const shieldWidth = this.size * 2;
+      const shieldHeight = this.size * 2.5;
+      const topCurve = this.size * 0.8;
+      
+      // Start at top center of shield
+      ctx.moveTo(this.x, this.y - shieldHeight/2);
+      
+      // Draw right curved top
+      ctx.quadraticCurveTo(
+        this.x + shieldWidth/4, this.y - shieldHeight/2,
+        this.x + shieldWidth/2, this.y - shieldHeight/2 + topCurve
+      );
+      
+      // Draw right side
+      ctx.lineTo(this.x + shieldWidth/2, this.y + shieldHeight/3);
+      
+      // Draw bottom point (tapered)
+      ctx.quadraticCurveTo(
+        this.x + shieldWidth/4, this.y + shieldHeight/2,
+        this.x, this.y + shieldHeight/2
+      );
+      
+      // Draw left side (mirror of right)
+      ctx.quadraticCurveTo(
+        this.x - shieldWidth/4, this.y + shieldHeight/2,
+        this.x - shieldWidth/2, this.y + shieldHeight/3
+      );
+      
+      // Draw left curved top
+      ctx.lineTo(this.x - shieldWidth/2, this.y - shieldHeight/2 + topCurve);
+      
+      // Connect back to start
+      ctx.quadraticCurveTo(
+        this.x - shieldWidth/4, this.y - shieldHeight/2,
+        this.x, this.y - shieldHeight/2
+      );
+      
+      // Fill and outline the shield
+      ctx.fillStyle = this.color;
+      ctx.fill();
+      ctx.lineWidth = 1.5;
+      ctx.strokeStyle = 'black';
+      ctx.stroke();
+    }
 
     // Health bar
     const healthPercentage = this.health / this.maxHealth;
@@ -239,11 +297,11 @@ export class Soldier {
         ctx.beginPath();
         ctx.moveTo(this.x, this.y);
         ctx.lineTo(this.target.x, this.target.y);
-        ctx.strokeStyle = 'orange';
+        ctx.strokeStyle = this.color;
         ctx.lineWidth = 1;
         ctx.stroke();
 
-        ctx.fillStyle = 'orange';
+        ctx.fillStyle = this.color;
         ctx.font = '10px Arial';
         ctx.fillText(`-${this.lastDamageDealt}`, (this.x + this.target.x) / 2, (this.y + this.target.y) / 2);
       }

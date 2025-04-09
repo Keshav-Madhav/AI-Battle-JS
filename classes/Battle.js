@@ -47,7 +47,8 @@ export class Battle {
       { type: 'melee', proportion: 0.5 },
       { type: 'healer', proportion: 0.1 },
       { type: 'archer', proportion: 0.2 },
-      { type: 'brezerker', proportion: 0.2 }
+      { type: 'brezerker', proportion: 0.1 },
+      { type: 'tank', proportion: 0.1 }
     ];
     
     // Calculate counts for each type
@@ -62,7 +63,7 @@ export class Battle {
     let allocatedCount = typeCounts.reduce((sum, type) => sum + type.count, 0);
     let remaining = count - allocatedCount;
     
-    // Distribute remaining soldiers to berserkers and melee
+    // Distribute remaining soldiers to melee and berserkers
     for (let i = 0; i < remaining; i++) {
       typeCounts[(i % 2 === 0) ? 0 : 3].count++; // Alternate between melee and berserkers
     }
@@ -125,6 +126,22 @@ export class Battle {
     const healerRows = Math.ceil(typeCounts[1].count / cols);
     rowOffset += healerRows;
     
+    // Place tanks in front of archers and healers
+    this.placeSoldierGroup(
+      typeCounts[4].count, 
+      cols, 
+      rowOffset, 
+      spacing * 1.5, // Tanks are bigger so need more spacing
+      spawnX, spawnY, 
+      perpX, perpY, 
+      normalizedDirX, normalizedDirY, 
+      army, 
+      'tank'
+    );
+    
+    const tankRows = Math.ceil(typeCounts[4].count / cols);
+    rowOffset += tankRows;
+    
     // Place berserkers in front of melee
     this.placeSoldierGroup(
       typeCounts[3].count, 
@@ -161,29 +178,24 @@ export class Battle {
     
     while (soldierCount < count) {
       for (let col = 0; col < cols && soldierCount < count; col++) {
-        // Berserkers get random positioning
-        const randomOffset = type === 'brezerker' ? 
-          (Math.random() * spacing * 0.5 - spacing * 0.25) : 0;
-          
-        const colOffset = (col - cols / 2) * spacing + randomOffset;
+        // Calculate position in formation
+        const colOffset = (col - cols / 2) * spacing;
         const rowPos = rowOffset + row;
         
-        // Berserkers stand slightly forward
-        const forwardOffset = type === 'brezerker' ? spacing * 0.7 : 0;
+        // Small random offset for more natural look, except for tanks which stay in strict formation
+        const randomOffset = (type === 'brezerker' && Math.random() < 0.7) ? 
+          (Math.random() * spacing * 0.3 - spacing * 0.15) : 0;
         
-        const x = spawnX + perpX * colOffset + normalizedDirX * (rowPos * spacing + forwardOffset);
-        const y = spawnY + perpY * colOffset + normalizedDirY * (rowPos * spacing + forwardOffset);
+        // Calculate final position
+        const x = spawnX + perpX * (colOffset + randomOffset) + normalizedDirX * rowPos * spacing;
+        const y = spawnY + perpY * (colOffset + randomOffset) + normalizedDirY * rowPos * spacing;
         
         const soldier = new Soldier(x, y, army.id, army.color, this.soldiers, type);
         
-        // Berserkers face random directions near center
+        // Face towards center
         const centerX = CANVAS_WIDTH / 2;
         const centerY = CANVAS_HEIGHT / 2;
-        const randomAngle = type === 'brezerker' ? 
-          Math.atan2(centerY - y, centerX - x) + (Math.random() - 0.5) * 0.5 : 
-          Math.atan2(centerY - y, centerX - x);
-        
-        soldier.direction = randomAngle;
+        soldier.direction = Math.atan2(centerY - y, centerX - x);
         
         // Store original stats for berserkers
         if (type === 'brezerker') {
@@ -316,6 +328,7 @@ export class Battle {
       const healers = armySoldiers.filter(s => s.type === 'healer');
       const archers = armySoldiers.filter(s => s.type === 'archer');
       const melee = armySoldiers.filter(s => s.type === 'melee');
+      const tanks = armySoldiers.filter(s => s.type === 'tank');
       const enragedBerserkers = berserkers.filter(s => 
         s.health < s.maxHealth * this.berserkerRageThreshold
       );
@@ -330,6 +343,7 @@ export class Battle {
         healerCount: healers.length,
         archerCount: archers.length,
         meleeCount: melee.length,
+        tankCount: tanks.length,
         berserkerCount: berserkers.length,
         enragedBerserkers: enragedBerserkers.length,
       };

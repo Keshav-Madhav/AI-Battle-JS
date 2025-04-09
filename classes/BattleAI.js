@@ -7,6 +7,8 @@ export class BattleAI {
     this.lastDecisionTime = 0;
     this.decisionInterval = 0.4;
     this.wanderTarget = null;
+    this.protectionAssignment = null; // For tanks - keeps track of who they're protecting
+    this.protectionStickiness = 0; // Makes tanks stick to their protection target longer
   }
 
   update(soldier, deltaTime, allSoldiers) {
@@ -14,14 +16,14 @@ export class BattleAI {
     this.lastDecisionTime += deltaTime;
 
     if (this.lastDecisionTime >= this.decisionInterval) {
-      this.makeDecision(soldier);
+      this.makeDecision(soldier, deltaTime);
       this.lastDecisionTime = 0;
     }
 
     this.executeBehavior(soldier, deltaTime);
   }
 
-  makeDecision(soldier) {
+  makeDecision(soldier, deltaTime) {
     const enemies = this.allSoldiers.filter(s => s.isAlive && s.armyId !== this.armyId);
     const allies = this.allSoldiers.filter(s => s.isAlive && s.armyId === this.armyId && s !== soldier);
   
@@ -73,8 +75,148 @@ export class BattleAI {
         return;
       }
     }
+
+    if (soldier.type === 'tank') {
+      // Only consider archers and healers for protection
+      const protectableAllies = allies.filter(ally => 
+        (ally.type === 'archer' || ally.type === 'healer') && ally.isAlive
+      );
+
+      // Get all tanks in our army (including this one)
+      const allTanks = this.allSoldiers.filter(s => 
+        s.isAlive && s.armyId === this.armyId && s.type === 'tank'
+      );
+      
+      // Find which allies are already being protected by other tanks
+      const protectedAlliesMap = new Map();
+      
+      allTanks.forEach(tank => {
+        if (tank !== soldier && tank.ai?.protectionAssignment) {
+          const protectedAlly = tank.ai.protectionAssignment;
+          
+          if (!protectedAlliesMap.has(protectedAlly.id)) {
+            protectedAlliesMap.set(protectedAlly.id, []);
+          }
+          
+          protectedAlliesMap.get(protectedAlly.id).push(tank);
+        }
+      });
+
+      // If we have a current protection assignment, check if it's still valid
+      if (this.protectionAssignment && this.protectionAssignment.isAlive) {
+        const currentAssignment = this.protectionAssignment;
+        const isStillProtectable = protectableAllies.includes(currentAssignment);
+        
+        // Check how many tanks are protecting this target 
+        const protectorsCount = protectedAlliesMap.has(currentAssignment.id) ? 
+          protectedAlliesMap.get(currentAssignment.id).length : 0;
+          
+        // If there are too many tanks on this target and stickiness is expired, find a new target
+        const tooManyProtectors = protectorsCount >= 2;
+        
+        // Only reconsider protection assignment if stickiness timer is up or assignment is invalid
+        if ((this.protectionStickiness <= 0 && tooManyProtectors) || !isStillProtectable) {
+          this.protectionAssignment = null;
+        } else {
+          this.protectionStickiness -= deltaTime;
+        }
+      }
+
+      // Find new protection assignment if needed
+      if (!this.protectionAssignment && protectableAllies.length > 0) {
+        // Calculate threat and protection scores for each ally
+        const allyScores = protectableAllies.map(ally => {
+          // Calculate threat level based on proximity to enemies
+          const closestEnemyDist = Math.min(
+            ...enemies.map(enemy => enemy.distanceTo(ally)),
+            Infinity
+          );
+          
+          // How many tanks are already protecting this ally
+          const currentProtectors = protectedAlliesMap.has(ally.id) ? 
+            protectedAlliesMap.get(ally.id).length : 0;
+          
+          // Calculate protection score (higher = needs more protection)
+          // Prioritize allies with fewer protectors
+          const protectionPenalty = currentProtectors * 50;
+          
+          // Prioritize healers slightly more than archers
+          const typePriority = ally.type === 'healer' ? 20 : 0;
+          
+          // Lower health allies need more protection
+          const healthFactor = (1 - (ally.health / ally.maxHealth)) * 40;
+          
+          // Closer enemies = more threat
+          const threatScore = 500 - closestEnemyDist;
+          
+          // Final score calculation
+          const protectionScore = threatScore + typePriority + healthFactor - protectionPenalty;
+          
+          return { ally, protectionScore, currentProtectors };
+        });
+        
+        // Sort by protection score (highest first)
+        allyScores.sort((a, b) => b.protectionScore - a.protectionScore);
+        
+        // Choose the ally with highest protection score who doesn't already have too many protectors
+        const bestMatch = allyScores.find(entry => entry.currentProtectors < 2) || allyScores[0];
+        
+        if (bestMatch) {
+          this.protectionAssignment = bestMatch.ally;
+          
+          // Set stickiness timer (2-4 seconds)
+          this.protectionStickiness = 2 + Math.random() * 2;
+        }
+      }
+
+      // If we have a protection assignment, focus on protecting them
+      if (this.protectionAssignment) {
+        const ally = this.protectionAssignment;
+        const enemiesThreateningAlly = enemies.filter(enemy => 
+          enemy.distanceTo(ally) < enemy.attackRange * 1.5
+        );
+
+        // If there are immediate threats to our protected ally
+        if (enemiesThreateningAlly.length > 0) {
+          // Target the closest threat to our protected ally
+          this.currentTarget = enemiesThreateningAlly.reduce((closest, enemy) => 
+            enemy.distanceTo(ally) < closest.dist ? 
+            { enemy, dist: enemy.distanceTo(ally) } : 
+            closest
+          , { enemy: null, dist: Infinity }).enemy;
+
+          const distanceToTarget = soldier.distanceTo(this.currentTarget);
+          
+          if (distanceToTarget <= soldier.attackRange) {
+            this.state = 'attack';
+          } else {
+            this.state = 'protect';
+          }
+          return;
+        }
+
+        // No immediate threats, guard the ally
+        this.state = 'guard';
+        this.currentTarget = null;
+        return;
+      }
+
+      // No protectable allies left - act as melee
+      this.currentTarget = enemies.reduce((closest, enemy) => {
+        const dist = soldier.distanceTo(enemy);
+        return dist < closest.dist ? { enemy, dist } : closest;
+      }, { enemy: null, dist: Infinity }).enemy;
+
+      const distance = soldier.distanceTo(this.currentTarget);
+      if (distance <= soldier.attackRange) {
+        this.state = 'attack';
+      } else {
+        this.state = 'seek';
+      }
+      return;
+    }
   
-    // Prioritize closest and weakest enemy
+    // Default behavior for other soldier types
     this.currentTarget = enemies.reduce((closest, enemy) => {
       const dist = soldier.distanceTo(enemy);
       const score = dist - (enemy.health * 0.5); // closer + lower health = better
@@ -194,6 +336,100 @@ export class BattleAI {
           const fleeX = soldier.x + (dx / mag) * 100;
           const fleeY = soldier.y + (dy / mag) * 100;
           soldier.moveTowards(fleeX, fleeY, deltaTime * 0.5); // half speed
+        }
+        break;
+
+      case 'protect':
+        if (this.currentTarget && this.protectionAssignment) {
+          // Position between the threat and our protected ally
+          const ally = this.protectionAssignment;
+          const angle = Math.atan2(
+            ally.y - this.currentTarget.y,
+            ally.x - this.currentTarget.x
+          );
+          
+          // Position slightly closer to the ally than the enemy
+          const protectDistance = 30;
+          const protectX = this.currentTarget.x + Math.cos(angle) * protectDistance;
+          const protectY = this.currentTarget.y + Math.sin(angle) * protectDistance;
+          
+          if (soldier.distanceTo({x: protectX, y: protectY}) > 10) {
+            soldier.moveTowards(protectX, protectY, deltaTime);
+          } else {
+            // If in position, attack the threat
+            const distance = soldier.distanceTo(this.currentTarget);
+            if (distance <= soldier.attackRange) {
+              this.state = 'attack';
+            }
+          }
+        }
+        break;
+
+      case 'guard':
+        if (this.protectionAssignment && this.protectionAssignment.isAlive) {
+          const ally = this.protectionAssignment;
+          const guardDistance = 35;
+          
+          // Find position between ally and nearest enemy
+          const nearestEnemy = this.allSoldiers
+            .filter(s => s.isAlive && s.armyId !== this.armyId)
+            .reduce((nearest, enemy) => 
+              enemy.distanceTo(ally) < nearest.dist ? 
+              { enemy, dist: enemy.distanceTo(ally) } : 
+              nearest
+            , { enemy: null, dist: Infinity }).enemy;
+          
+          if (nearestEnemy) {
+            const angle = Math.atan2(
+              ally.y - nearestEnemy.y,
+              ally.x - nearestEnemy.x
+            );
+            
+            // Add some variation to each tank's guarding position by using the soldier's id
+            // This prevents tanks from stacking on top of each other
+            const tankId = soldier.id || Math.random();
+            const angleOffset = (tankId % 10) / 10 * Math.PI * 0.5; // 0 to π/2 offset
+            const adjustedAngle = angle + angleOffset;
+            
+            const guardX = ally.x + Math.cos(adjustedAngle) * guardDistance;
+            const guardY = ally.y + Math.sin(adjustedAngle) * guardDistance;
+            
+            if (soldier.distanceTo({x: guardX, y: guardY}) > 10) {
+              soldier.moveTowards(guardX, guardY, deltaTime);
+            }
+          } else {
+            // No enemies nearby, just orbit the ally slowly
+            const orbitDistance = 25;
+            
+            // Different starting angles for different tanks
+            if (!this.guardAngle) {
+              const tankId = soldier.id || Math.random();
+              this.guardAngle = (tankId % 10) / 10 * Math.PI * 2; // 0 to 2π
+            }
+            
+            this.guardAngle = (this.guardAngle || 0) + deltaTime * 0.3;
+            const orbitX = ally.x + Math.cos(this.guardAngle) * orbitDistance;
+            const orbitY = ally.y + Math.sin(this.guardAngle) * orbitDistance;
+            soldier.moveTowards(orbitX, orbitY, deltaTime * 0.7);
+          }
+          
+          // Taunt nearby enemies
+          const enemiesInRange = this.allSoldiers.filter(s => 
+            s.isAlive && 
+            s.armyId !== this.armyId &&
+            soldier.distanceTo(s) < soldier.tauntRange
+          );
+          
+          for (const enemy of enemiesInRange) {
+            // Higher chance to taunt enemies targeting our protected ally
+            if (enemy.ai?.currentTarget === this.protectionAssignment || Math.random() < 0.4) {
+              enemy.ai.currentTarget = soldier;
+            }
+          }
+        } else {
+          // Lost our protection assignment
+          this.protectionAssignment = null;
+          this.state = 'seek';
         }
         break;
 

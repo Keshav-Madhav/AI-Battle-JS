@@ -56,14 +56,13 @@ function updateStats(stats) {
       <div class="army-stat ${armyClass}" style="border-left: 4px solid ${army.color}">
         <div class="army-header">
           <span class="army-title" style="color:${army.color}">Army ${army.id}</span>
-          <span class="army-status">${isDefeated ? 'DEFEATED' : 'FIGHTING'}</span>
-        </div>
-        
-        <div class="army-numbers">
-          <div class="soldier-count">
-            <span class="count">${army.aliveCount}</span>
-            <span class="total"> / ${army.soldierCount}</span>
-            <span class="percentage"> (${army.percentage}%)</span>
+
+          <div class="army-numbers">
+            <div class="soldier-count">
+              <span class="count">${army.aliveCount}</span>
+              <span class="total"> / ${army.soldierCount}</span>
+              <span class="percentage"> (${army.percentage}%)</span>
+            </div>
           </div>
         </div>
 
@@ -80,6 +79,11 @@ function updateStats(stats) {
         <div class="unit-type">
           <span class="unit-label">Archers:</span>
           <span class="unit-count">${army.archerCount}</span>
+        </div>
+
+        <div class="unit-type">
+          <span class="unit-label">Tanks:</span>
+          <span class="unit-count">${army.tankCount}</span>
         </div>
         
         <div class="special-units">
