@@ -38,21 +38,63 @@
 </head>
 <body>
     <div id="controls">
-        <div class="control-group">
+        <div class="control-group basic-controls">
             <label>Number of Armies: 
-                <input type="number" id="armyCount" min="2" max="10" value="3">
+                <input type="number" id="armyCount" min="2" max="10" value="4">
             </label>
             <label>Soldiers per Army: 
-                <input type="number" id="soldiersPerArmy" min="20" max="400" value="100">
-            </label>
-            <label>Battle Speed: 
-                <input type="range" id="battleSpeed" min="0.0" max="3" step="0.1" value="1">
+                <input type="number" id="soldiersPerArmy" min="20" step="10" max="400" value="100">
             </label>
         </div>
+        <label style="display: flex; align-items: center; margin-top: 10px; margin-bottom: 10px;">
+            Battle Speed: 
+            <input type="range" id="battleSpeed" min="0.0" max="3" step="0.1" value="1" style="margin-left: auto;">
+        </label>
+        
+        <!-- Custom Army Builder Controls - Initially visible but will be hidden when battle starts -->
+        <div id="armyBuilder" class="army-builder">
+            <h3>Army Builder</h3>
+            
+            <div class="color-selector">
+                <h4>Select Color</h4>
+                <div class="color-options">
+                    <button class="color-btn" data-color="#ff5252" style="background-color: #ff5252"></button>
+                    <button class="color-btn" data-color="#4caf50" style="background-color: #4caf50"></button>
+                    <button class="color-btn" data-color="#2196f3" style="background-color: #2196f3"></button>
+                    <button class="color-btn" data-color="#ffeb3b" style="background-color: #ffeb3b"></button>
+                    <button class="color-btn" data-color="#9c27b0" style="background-color: #9c27b0"></button>
+                </div>
+                <div class="selected-color">
+                    <span>Selected: </span>
+                    <div id="currentColor" class="color-display" style="background-color: #ff5252"></div>
+                </div>
+            </div>
+            
+            <div class="unit-selector">
+                <h4>Select Unit Type</h4>
+                <div class="unit-options">
+                    <button class="unit-btn selected" data-unit="melee">Melee</button>
+                    <button class="unit-btn" data-unit="archer">Archer</button>
+                    <button class="unit-btn" data-unit="healer">Healer</button>
+                    <button class="unit-btn" data-unit="tank">Tank</button>
+                    <button class="unit-btn" data-unit="berserker">Berserker</button>
+                </div>
+            </div>
+            
+            <!-- Army composition preview will go here in future implementation -->
+            <!-- <div class="army-preview">
+                <h4>Army Composition (Coming Soon)</h4>
+                <div id="armyPreview" class="preview-container">
+                    <p class="coming-soon">Army customization feature coming soon!</p>
+                </div>
+            </div> -->
+        </div>
+        
         <div class="button-group">
             <button id="startBtn">Start Simulation</button>
             <button id="resetBtn">Reset</button>
         </div>
+        
         <div id="stats">
             <!-- Dynamic stats will be inserted here by JavaScript -->
         </div>

@@ -33,7 +33,7 @@ canvas {
   background: rgba(0, 0, 0, 0.7);
   padding: 10px;
   border-radius: 5px;
-  width: 280px;
+  width: 320px;
   z-index: 100;
 }
 
@@ -64,10 +64,15 @@ button {
   color: white;
   cursor: pointer;
   flex: 1;
+  transition: all 0.2s ease;
 }
 
 button:hover {
   background: #2980b9;
+}
+
+button:active {
+  transform: scale(0.98);
 }
 
 input[type="number"] {
@@ -85,10 +90,124 @@ input[type="range"] {
 
 #stats {
   overflow-y: auto;
-  max-height: 70vh;
+  max-height: 80vh;
   padding-right: 5px;
 }
 
+/* Army Builder Styles */
+.army-builder {
+  background: rgba(40, 40, 40, 0.5);
+  padding: 12px;
+  border-radius: 5px;
+  margin-bottom: 15px;
+  border-left: 3px solid #3498db;
+  transition: opacity 0.3s ease, max-height 0.3s ease;
+}
+
+.army-builder h3 {
+  margin-top: 0;
+  margin-bottom: 12px;
+  font-size: 1.1em;
+  color: #3498db;
+}
+
+.army-builder h4 {
+  margin: 10px 0 6px;
+  font-size: 0.9em;
+  color: #aaa;
+}
+
+/* Color Selector Styles */
+.color-selector {
+  margin-bottom: 15px;
+}
+
+.color-options {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.color-btn {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  padding: 0;
+  border: 2px solid transparent;
+  flex: none;
+}
+
+.color-btn.selected {
+  border-color: white;
+  box-shadow: 0 0 5px rgba(255, 255, 255, 0.5);
+}
+
+.selected-color {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.9em;
+}
+
+.color-display {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: 1px solid #666;
+}
+
+/* Unit Selector Styles */
+.unit-selector {
+  margin-bottom: 15px;
+}
+
+.unit-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.unit-btn {
+  padding: 6px 10px;
+  font-size: 0.85em;
+  background: #444;
+  flex: none;
+}
+
+.unit-btn.selected {
+  background: #3498db;
+}
+
+/* Army Preview */
+.army-preview {
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  padding-top: 10px;
+}
+
+.preview-container {
+  background: rgba(0, 0, 0, 0.3);
+  padding: 10px;
+  border-radius: 4px;
+  min-height: 60px;
+}
+
+.coming-soon {
+  text-align: center;
+  color: #888;
+  font-style: italic;
+  font-size: 0.9em;
+}
+
+/* Hide builder when battle is active */
+.army-builder.hidden {
+  opacity: 0;
+  max-height: 0;
+  padding: 0;
+  margin: 0;
+  overflow: hidden;
+}
+
+/* Stats Styles */
 .stats-header {
   display: flex;
   justify-content: space-between;

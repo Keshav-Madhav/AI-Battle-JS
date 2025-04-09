@@ -114,9 +114,9 @@ export class Soldier {
       this.y += directionY * moveDistance;
   
       // Calculate centered square boundaries
-      const canvasSize = Math.min(CANVAS_WIDTH, CANVAS_HEIGHT);
-      const centerX = CANVAS_WIDTH / 2;
-      const centerY = CANVAS_HEIGHT / 2;
+      const canvasSize = Math.min(canvas.width, canvas.height);
+      const centerX = canvas.width / 2;
+      const centerY = canvas.height / 2;
       const buffer = canvasSize / 2 - 20;
       
       // Keep within centered square

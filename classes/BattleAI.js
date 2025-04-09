@@ -515,8 +515,8 @@ export class BattleAI {
       const range = 75;
       const buffer = 20;
       this.wanderTarget = {
-        x: Math.min(CANVAS_WIDTH - buffer, Math.max(buffer, soldier.x + (Math.random() - 0.5) * range)),
-        y: Math.min(CANVAS_HEIGHT - buffer, Math.max(buffer, soldier.y + (Math.random() - 0.5) * range)),
+        x: Math.min(canvas.width - buffer, Math.max(buffer, soldier.x + (Math.random() - 0.5) * range)),
+        y: Math.min(canvas.height - buffer, Math.max(buffer, soldier.y + (Math.random() - 0.5) * range)),
       };
     }
 

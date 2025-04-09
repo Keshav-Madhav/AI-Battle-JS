@@ -26,18 +26,18 @@ export class Battle {
   createArmies(armyCount, soldiersPerArmy) {
     const colors = this.generateDistinctColors(armyCount);
     const angleStep = (Math.PI * 2) / armyCount;
-    const centerX = CANVAS_WIDTH / 2;
-    const centerY = CANVAS_HEIGHT / 2;
-    const radius = Math.min(CANVAS_WIDTH, CANVAS_HEIGHT) * 0.3;
-
+    const centerX = canvas.width / 2;
+    const centerY = canvas.height / 2;
+    const radius = Math.min(canvas.width, canvas.height) * 0.3;
+  
     for (let i = 0; i < armyCount; i++) {
       const army = new Army(i, soldiersPerArmy, colors[i]);
       this.armies.push(army);
-
+  
       const armyAngle = angleStep * i;
       const spawnX = centerX + Math.cos(armyAngle) * radius;
       const spawnY = centerY + Math.sin(armyAngle) * radius;
-
+  
       this.createSoldiersForArmy(army, soldiersPerArmy, spawnX, spawnY, armyAngle);
     }
   }
@@ -69,8 +69,8 @@ export class Battle {
     }
     
     // Calculate direction vectors to the center
-    const centerX = CANVAS_WIDTH / 2;
-    const centerY = CANVAS_HEIGHT / 2;
+    const centerX = canvas.width / 2;
+    const centerY = canvas.height / 2;
     const dirX = centerX - spawnX;
     const dirY = centerY - spawnY;
     const dirLen = Math.sqrt(dirX * dirX + dirY * dirY);
@@ -193,8 +193,8 @@ export class Battle {
         const soldier = new Soldier(x, y, army.id, army.color, this.soldiers, type);
         
         // Face towards center
-        const centerX = CANVAS_WIDTH / 2;
-        const centerY = CANVAS_HEIGHT / 2;
+        const centerX = canvas.width / 2;
+        const centerY = canvas.height / 2;
         soldier.direction = Math.atan2(centerY - y, centerX - x);
         
         // Store original stats for berserkers
