@@ -67,7 +67,7 @@ export class BattleAI {
         const distance = soldier.distanceTo(this.currentTarget);
         if (distance <= soldier.attackRange) {
           this.state = 'attack';
-        } else if (distance <= (soldier.health < soldier.maxHealth * 0.2 ? soldier.visionRange * 2 : soldier.visionRange)) {
+        } else if (distance <= (soldier.health < soldier.maxHealth * 0.2 ? soldier.visionRange * 3 : soldier.visionRange)) {
           this.state = 'seek';
         } else {
           this.state = 'wander';
@@ -233,7 +233,22 @@ export class BattleAI {
       this.state = 'seek';
       this.broadcastTarget(soldier, this.currentTarget);
     } else {
-      this.state = 'wander';
+      // When wandering, there's a small chance to seek the closest target regardless of vision range
+      if (Math.random() < 0.02) { // 2% chance per decision interval
+        const closestEnemy = enemies.reduce((closest, enemy) => {
+          const dist = soldier.distanceTo(enemy);
+          return dist < closest.dist ? { enemy, dist } : closest;
+        }, { enemy: null, dist: Infinity }).enemy;
+        
+        if (closestEnemy) {
+          this.currentTarget = closestEnemy;
+          this.state = 'seek';
+        } else {
+          this.state = 'wander';
+        }
+      } else {
+        this.state = 'wander';
+      }
     }
   }  
 
@@ -476,12 +491,12 @@ export class BattleAI {
     const criticalHealth = soldier.maxHealth * 0.1;
   
     if (soldier.health <= criticalHealth && chaserCount >= 2) {
-      let baseFlipChance = 0.3 + 0.1 * (chaserCount - 2);
+      let baseFlipChance = 0.2 + 0.1 * (chaserCount - 2);
       const allyPenalty = Math.min(allyFleeCount * 0.15, 0.5);
       const finalFlipChance = baseFlipChance * (1 - allyPenalty);
   
       if (Math.random() < finalFlipChance) {
-        const willingChasers = nearbyEnemies.filter(e => Math.random() < 0.7);
+        const willingChasers = nearbyEnemies.filter(e => Math.random() < 0.4);
         if (willingChasers.length > 0) {
           const newArmyId = willingChasers[0].armyId;
           soldier.armyId = newArmyId;
@@ -511,12 +526,21 @@ export class BattleAI {
   }   
 
   handleWandering(soldier, deltaTime) {
+    const centerX = canvas.width / 2;
+    const centerY = canvas.height / 2;
+
     if (!this.wanderTarget || Math.random() < 0.01) {
       const range = 75;
       const buffer = 20;
+
+      // Reduced center bias (from 0.2 to 0.05)
+      const biasFactor = 0.05; // Much weaker attraction to center
+      const targetX = soldier.x + (Math.random() - 0.5) * range + (centerX - soldier.x) * biasFactor;
+      const targetY = soldier.y + (Math.random() - 0.5) * range + (centerY - soldier.y) * biasFactor;
+
       this.wanderTarget = {
-        x: Math.min(canvas.width - buffer, Math.max(buffer, soldier.x + (Math.random() - 0.5) * range)),
-        y: Math.min(canvas.height - buffer, Math.max(buffer, soldier.y + (Math.random() - 0.5) * range)),
+        x: Math.min(canvas.width - buffer, Math.max(buffer, targetX)),
+        y: Math.min(canvas.height - buffer, Math.max(buffer, targetY)),
       };
     }
 
@@ -527,6 +551,7 @@ export class BattleAI {
     const baseAlertRange = 120;
     const alertRange = soldier.type === 'archer' ? baseAlertRange * 1.8 : baseAlertRange;
   
+    // Get all allies except this soldier
     const nearbyAllies = this.allSoldiers.filter(s =>
       s !== soldier &&
       s.isAlive &&
@@ -537,10 +562,30 @@ export class BattleAI {
     for (const ally of nearbyAllies) {
       if (!ally.ai || ally.ai.state === 'flee' || ally.ai.state === 'heal') continue;
   
+      // Always update target if current target is null or if the new target is closer
+      const currentTargetDist = ally.ai.currentTarget ? 
+        ally.distanceTo(ally.ai.currentTarget) : Infinity;
+      const newTargetDist = soldier.distanceTo(target);
+      
+      // Different rules for different unit types
       const isArcher = ally.type === 'archer';
+      const isTank = ally.type === 'tank';
       const isIdleOrWandering = ally.ai.state === 'wander' || ally.ai.state === 'idle';
-      const shouldUpdate =
-        !ally.ai.currentTarget || isIdleOrWandering || isArcher;
+      
+      // Tanks only update if they don't have a protection assignment
+      const tankCanUpdate = isTank && !ally.ai.protectionAssignment;
+      
+      // Update conditions:
+      // 1. If ally has no target
+      // 2. If new target is closer than current target
+      // 3. If ally is idle/wandering (unless it's a tank with assignment)
+      // 4. If it's an archer (they're more responsive)
+      const shouldUpdate = 
+        !ally.ai.currentTarget || 
+        newTargetDist < currentTargetDist || 
+        isIdleOrWandering ||
+        isArcher ||
+        tankCanUpdate;
   
       if (shouldUpdate) {
         ally.ai.currentTarget = target;

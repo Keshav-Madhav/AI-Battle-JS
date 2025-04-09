@@ -32,9 +32,9 @@ export class Soldier {
       this.visionRange = 150;
     } else if (type === 'healer') {
       this.health = 80;
-      this.attackDamage = 0;
+      this.attackDamage = 5;
       this.attackRange = 50;
-      this.speed = 40;
+      this.speed = 50;
       this.healAmount = 10;
       this.healingRange = 30;
       this.visionRange = 150;
