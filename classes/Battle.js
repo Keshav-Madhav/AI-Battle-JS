@@ -47,7 +47,7 @@ export class Battle {
       { type: 'melee', proportion: 0.5 },
       { type: 'healer', proportion: 0.1 },
       { type: 'archer', proportion: 0.2 },
-      { type: 'brezerker', proportion: 0.1 },
+      { type: 'berserker', proportion: 0.1 },
       { type: 'tank', proportion: 0.1 }
     ];
     
@@ -152,7 +152,7 @@ export class Battle {
       perpX, perpY, 
       normalizedDirX, normalizedDirY, 
       army, 
-      'brezerker'
+      'berserker'
     );
     
     const berserkerRows = Math.ceil(typeCounts[3].count / cols);
@@ -183,7 +183,7 @@ export class Battle {
         const rowPos = rowOffset + row;
         
         // Small random offset for more natural look, except for tanks which stay in strict formation
-        const randomOffset = (type === 'brezerker' && Math.random() < 0.7) ? 
+        const randomOffset = (type === 'berserker' && Math.random() < 0.7) ? 
           (Math.random() * spacing * 0.3 - spacing * 0.15) : 0;
         
         // Calculate final position
@@ -198,7 +198,7 @@ export class Battle {
         soldier.direction = Math.atan2(centerY - y, centerX - x);
         
         // Store original stats for berserkers
-        if (type === 'brezerker') {
+        if (type === 'berserker') {
           soldier.baseAttackDamage = soldier.attackDamage;
           soldier.baseSpeed = soldier.speed;
         }
@@ -229,7 +229,7 @@ export class Battle {
     
     // Update berserker states
     this.soldiers.forEach(soldier => {
-      if (soldier.type === 'brezerker' && soldier.isAlive) {
+      if (soldier.type === 'berserker' && soldier.isAlive) {
         // Check for rage state
         const isEnraged = soldier.health < soldier.maxHealth * this.berserkerRageThreshold;
         
@@ -280,7 +280,7 @@ export class Battle {
 
   drawBerserkerEffects(ctx) {
     this.soldiers.forEach(soldier => {
-      if (soldier.type === 'brezerker' && soldier.isAlive) {
+      if (soldier.type === 'berserker' && soldier.isAlive) {
         const isEnraged = soldier.health < soldier.maxHealth * this.berserkerRageThreshold;
         
         if (isEnraged) {
@@ -324,7 +324,7 @@ export class Battle {
   getStats() {
     return this.armies.map(army => {
       const armySoldiers = this.soldiers.filter(s => s.armyId === army.id);
-      const berserkers = armySoldiers.filter(s => s.type === 'brezerker');
+      const berserkers = armySoldiers.filter(s => s.type === 'berserker');
       const healers = armySoldiers.filter(s => s.type === 'healer');
       const archers = armySoldiers.filter(s => s.type === 'archer');
       const melee = armySoldiers.filter(s => s.type === 'melee');

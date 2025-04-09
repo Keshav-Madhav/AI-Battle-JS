@@ -52,7 +52,7 @@ export class BattleAI {
       }
     }
 
-    if (soldier.type === 'brezerker') {
+    if (soldier.type === 'berserker') {
       // If health is critical (<20%), attack ANYONE including allies
       const targets = soldier.health < soldier.maxHealth * 0.2 ? 
         [...enemies, ...allies] : 
@@ -282,7 +282,7 @@ export class BattleAI {
         if (this.currentTarget && this.currentTarget.isAlive) {
           const distance = soldier.distanceTo(this.currentTarget);
           if (distance <= soldier.attackRange) {
-            if (soldier.type === 'brezerker') {
+            if (soldier.type === 'berserker') {
               // Berserker special attack - damage all in range
               const allInRange = this.allSoldiers.filter(s => 
                 s.isAlive && 
@@ -304,7 +304,7 @@ export class BattleAI {
             }
           } else {
             // Berserker charges faster when low health
-            const speedMultiplier = (soldier.type === 'brezerker' && soldier.health < soldier.maxHealth * 0.2) ? 1.5 : 1;
+            const speedMultiplier = (soldier.type === 'berserker' && soldier.health < soldier.maxHealth * 0.2) ? 1.5 : 1;
             soldier.moveTowards(this.currentTarget.x, this.currentTarget.y, deltaTime * speedMultiplier);
           }
         }

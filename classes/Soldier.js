@@ -38,7 +38,7 @@ export class Soldier {
       this.healAmount = 10;
       this.healingRange = 30;
       this.visionRange = 150;
-    } else if (type === 'brezerker'){
+    } else if (type === 'berserker'){
       this.health = 200;
       this.attackDamage = 60;
       this.attackRange = 10;
@@ -84,7 +84,7 @@ export class Soldier {
     }
     
     // Update pulse animation for healers and berzerkers
-    if (this.type === 'healer' && this.isHealing || this.type === 'brezerker' && this.isAttacking) {
+    if (this.type === 'healer' && this.isHealing || this.type === 'berserker' && this.isAttacking) {
       this.pulseSize += deltaTime * 3 * this.pulseDirection;
       if (this.pulseSize > 1) {
         this.pulseSize = 1;
@@ -267,7 +267,7 @@ export class Soldier {
       }
     } 
     // Berzerker - Spiked circle with rage effect
-    else if (this.type === 'brezerker') {
+    else if (this.type === 'berserker') {
       const spikes = 8;
       const outerRadius = this.size + (this.isAttacking ? this.pulseSize * 2 : 0);
       const innerRadius = this.size * 0.6;

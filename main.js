@@ -4,6 +4,18 @@ import { Battle } from './classes/Battle.js';
 import { resizeCanvas } from './utils/resizeCanvas.js';
 import { drawFPS } from './utils/fpsDisplay.js';
 
+// Get DOM elements
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+const dom = {
+  armyCount: document.getElementById('armyCount'),
+  soldiersPerArmy: document.getElementById('soldiersPerArmy'),
+  startBtn: document.getElementById('startBtn'),
+  resetBtn: document.getElementById('resetBtn'),
+  battleSpeed: document.getElementById('battleSpeed'),
+  statsElement: document.getElementById('stats')
+};
+
 window.addEventListener('load', () => {
   resizeCanvas({ canvasArray: [canvas] });
 })
@@ -34,7 +46,7 @@ function renderSoldiers(soldiers) {
   });
   
   // Draw berserker effects after all soldiers for proper layering
-  if (battle.soldiers.some(s => s.type === 'brezerker' && s.isAlive)) {
+  if (battle.soldiers.some(s => s.type === 'berserker' && s.isAlive)) {
     battle.drawBerserkerEffects(ctx);
   }
 }
