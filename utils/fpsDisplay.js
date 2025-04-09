@@ -36,14 +36,27 @@ const drawFPS = (width, height, context) => {
   const onePercentLowTime = sortedFrameTimes.slice(0, onePercentLowIndex).reduce((a, b) => a + b, 0) / onePercentLowIndex;
   onePercentLowFps = Math.round(1000 / onePercentLowTime);
 
-  // Draw FPS metrics on canvas
+  // Position and dimensions for the FPS display
+  const rectWidth = 80;
+  const rectHeight = 40;
+  const rectX = width - rectWidth - 10; // 10px from right edge
+  const rectY = 10;
+  const textX = rectX + 5; // 5px padding from left edge of rectangle
+  const lineHeight = 12;
+  const firstLineY = rectY + lineHeight;
+
+  // Draw background rectangle
   context.fillStyle = 'rgba(255, 255, 255, 0.5)';
-  context.fillRect(width - 80, 10, 80, 40);
+  context.fillRect(rectX, rectY, rectWidth, rectHeight);
+
+  // Draw FPS metrics (left-aligned within rectangle)
   context.fillStyle = 'black';
   context.font = '11px sans-serif';
-  context.fillText(`FPS: ${currentFps}`, width - 75, 22);
-  context.fillText(`Avg FPS: ${avgFps}`, width - 75, 34);
-  context.fillText(`1% Low: ${onePercentLowFps}`, width - 75, 46);
+  context.textAlign = 'left';
+  
+  context.fillText(`FPS: ${currentFps}`, textX, firstLineY);
+  context.fillText(`Avg: ${avgFps}`, textX, firstLineY + lineHeight);
+  context.fillText(`1% Low: ${onePercentLowFps}`, textX, firstLineY + (lineHeight * 2));
 
   return {
     currentFps,

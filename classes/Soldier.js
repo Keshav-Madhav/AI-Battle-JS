@@ -19,14 +19,16 @@ export class Soldier {
     // Adjust stats based on type
     if (type === 'melee') {
       this.health = 150;
-      this.attackDamage = 20;
+      this.attackDamage = 25;
       this.attackRange = 15;
       this.speed = 40;
+      this.visionRange = 100;
     } else if (type === 'archer') {
       this.health = 100;
-      this.attackDamage = 15;
+      this.attackDamage = 20;
       this.attackRange = 100;
       this.speed = 60;
+      this.visionRange = 150;
     } else if (type === 'healer') {
       this.health = 80;
       this.attackDamage = 0;
@@ -34,10 +36,16 @@ export class Soldier {
       this.speed = 40;
       this.healAmount = 10;
       this.healingRange = 30;
+      this.visionRange = 150;
+    } else if (type === 'brezerker'){
+      this.health = 200;
+      this.attackDamage = 60;
+      this.attackRange = 10;
+      this.speed = 50;
+      this.visionRange = 75;
     }
 
     this.maxHealth = this.health;
-    this.visionRange = 150;
     this.size = 4;
     this.attackCooldown = 0;
     this.attackRate = 1;
@@ -68,18 +76,24 @@ export class Soldier {
     const dx = targetX - this.x;
     const dy = targetY - this.y;
     const distance = Math.sqrt(dx * dx + dy * dy);
-
+  
     if (distance > 0) {
       const directionX = dx / distance;
       const directionY = dy / distance;
-
+  
       const moveDistance = Math.min(distance, this.speed * deltaTime);
       this.x += directionX * moveDistance;
       this.y += directionY * moveDistance;
-
-      const buffer = this.size * 4;
-      this.x = Math.max(buffer, Math.min(CANVAS_WIDTH - buffer, this.x));
-      this.y = Math.max(buffer, Math.min(CANVAS_HEIGHT - buffer, this.y));
+  
+      // Calculate centered square boundaries
+      const canvasSize = Math.min(CANVAS_WIDTH, CANVAS_HEIGHT);
+      const centerX = CANVAS_WIDTH / 2;
+      const centerY = CANVAS_HEIGHT / 2;
+      const buffer = canvasSize / 2 - 20;
+      
+      // Keep within centered square
+      this.x = Math.max(centerX - buffer, Math.min(centerX + buffer, this.x));
+      this.y = Math.max(centerY - buffer, Math.min(centerY + buffer, this.y));
     }
   }
 
@@ -127,6 +141,29 @@ export class Soldier {
       ctx.stroke();
     }
 
+    if (this.isAttacking && this.type === 'brezerker') {
+      ctx.beginPath();
+      ctx.arc(this.x, this.y, this.attackRange, 0, Math.PI * 2);
+      ctx.strokeStyle = 'rgba(255, 0, 0, 0.3)';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+      
+      // Blood splatter effect
+      for (let i = 0; i < 5; i++) {
+        const angle = Math.random() * Math.PI * 2;
+        const dist = this.size + Math.random() * this.attackRange/2;
+        ctx.beginPath();
+        ctx.arc(
+          this.x + Math.cos(angle) * dist,
+          this.y + Math.sin(angle) * dist,
+          1 + Math.random() * 2,
+          0, Math.PI * 2
+        );
+        ctx.fillStyle = 'rgba(200, 0, 0, 0.7)';
+        ctx.fill();
+      }
+    }
+
     // Main body
     ctx.fillStyle = this.color;
 
@@ -155,7 +192,23 @@ export class Soldier {
       ctx.lineWidth = 0.8;
       ctx.strokeRect(this.x - s / 4, this.y - s, s / 2, s * 2);
       ctx.strokeRect(this.x - s, this.y - s / 4, s * 2, s / 2);
-    }
+    } else if (this.type === 'brezerker') {
+      ctx.beginPath();
+      ctx.arc(this.x, this.y, this.size*1.5, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.lineWidth = 1;
+      ctx.strokeStyle = 'black';
+      ctx.stroke();
+
+      // transparent center for donut effect
+      ctx.beginPath();
+      ctx.arc(this.x, this.y, this.size*0.5, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+      ctx.fill();
+      ctx.lineWidth = 0.5;
+      ctx.strokeStyle = 'black';
+      ctx.stroke();
+  }
 
     // Health bar
     const healthPercentage = this.health / this.maxHealth;
@@ -197,9 +250,9 @@ export class Soldier {
 
       if (this.type === 'melee') {
         ctx.beginPath();
-        ctx.arc(this.x, this.y, this.size + 4, 0, Math.PI * 2);
+        ctx.arc(this.x, this.y, this.size + 2, 0, Math.PI * 2);
         ctx.strokeStyle = 'red';
-        ctx.lineWidth = 1;
+        ctx.lineWidth = 0.5;
         ctx.stroke();
       }
     }
@@ -207,7 +260,7 @@ export class Soldier {
     if (this.isHealing) {
       for (const target of this.recentlyHealedTargets) {
         ctx.beginPath();
-        ctx.arc(target.x, target.y, target.size + 2, 0, Math.PI * 2);
+        ctx.arc(target.x, target.y, target.size + 3, 0, Math.PI * 2);
         ctx.strokeStyle = 'lime';
         ctx.lineWidth = 0.5;
         ctx.stroke();

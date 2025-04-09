@@ -1,0 +1,142 @@
+/* simple scroll bar */
+::-webkit-scrollbar {
+  width: 6px;
+  background: rgba(0, 0, 0, 0.5);
+  border-radius: 5px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 5px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.4);
+}
+
+body {
+  margin: 0;
+  overflow: hidden;
+  background-color: #111;
+}
+canvas {
+  display: block;
+}
+#controls {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  background: rgba(0, 0, 0, 0.7);
+  padding: 10px;
+  border-radius: 5px;
+  color: white;
+  font-family: Arial, sans-serif;
+}
+button, input {
+  margin: 5px;
+}
+
+#stats{
+  overflow-y: auto;
+  max-height: 80vh;
+  padding-right: 5px;
+}
+
+.stats-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.army-stats-container {
+  display: grid;
+  gap: 12px;
+}
+
+.army-stat {
+  background: rgba(0, 0, 0, 0.7);
+  padding: 12px;
+  border-radius: 4px;
+}
+
+.army-defeated {
+  opacity: 0.6;
+}
+
+.army-header {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.army-title {
+  font-weight: bold;
+  font-size: 1.1em;
+}
+
+.army-status {
+  font-size: 0.9em;
+  color: #aaa;
+}
+
+.soldier-count {
+  font-size: 1.3em;
+  margin-bottom: 8px;
+}
+
+.soldier-count .count {
+  font-weight: bold;
+}
+
+.soldier-count .total {
+  color: #aaa;
+  font-size: 0.9em;
+}
+
+.special-units {
+  display: flex;
+  gap: 15px;
+  margin-bottom: 10px;
+  font-size: 0.9em;
+}
+
+.unit-type {
+  display: flex;
+  gap: 5px;
+}
+
+.unit-label {
+  color: #aaa;
+}
+
+.unit-count.enraged {
+  color: #ff5555;
+  font-weight: bold;
+}
+
+.health-bar-container {
+  height: 4px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.health-bar {
+  height: 100%;
+  transition: width 0.2s ease;
+}
+
+.victory-message {
+  margin-top: 15px;
+  font-size: 1.2em;
+  font-weight: bold;
+  text-align: center;
+  animation: pulse 1.5s infinite;
+}
+
+@keyframes pulse {
+  0% { opacity: 0.8; }
+  50% { opacity: 1; }
+  100% { opacity: 0.8; }
+}

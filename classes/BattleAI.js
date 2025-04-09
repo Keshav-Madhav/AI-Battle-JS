@@ -49,6 +49,30 @@ export class BattleAI {
         return;
       }
     }
+
+    if (soldier.type === 'brezerker') {
+      // If health is critical (<20%), attack ANYONE including allies
+      const targets = soldier.health < soldier.maxHealth * 0.2 ? 
+        [...enemies, ...allies] : 
+        enemies;
+        
+      if (targets.length > 0) {
+        this.currentTarget = targets.reduce((closest, target) => {
+          const dist = soldier.distanceTo(target);
+          return dist < closest.dist ? { target, dist } : closest;
+        }, { target: null, dist: Infinity }).target;
+        
+        const distance = soldier.distanceTo(this.currentTarget);
+        if (distance <= soldier.attackRange) {
+          this.state = 'attack';
+        } else if (distance <= (soldier.health < soldier.maxHealth * 0.2 ? soldier.visionRange * 2 : soldier.visionRange)) {
+          this.state = 'seek';
+        } else {
+          this.state = 'wander';
+        }
+        return;
+      }
+    }
   
     // Prioritize closest and weakest enemy
     this.currentTarget = enemies.reduce((closest, enemy) => {
@@ -116,9 +140,30 @@ export class BattleAI {
         if (this.currentTarget && this.currentTarget.isAlive) {
           const distance = soldier.distanceTo(this.currentTarget);
           if (distance <= soldier.attackRange) {
-            soldier.attack(this.currentTarget);
+            if (soldier.type === 'brezerker') {
+              // Berserker special attack - damage all in range
+              const allInRange = this.allSoldiers.filter(s => 
+                s.isAlive && 
+                soldier.distanceTo(s) <= soldier.attackRange
+              );
+              
+              for (const target of allInRange) {
+                // If health is critical (<20%), attack everyone
+                if (soldier.health < soldier.maxHealth * 0.2) {
+                  target.takeDamage(soldier.attackDamage);
+                } 
+                // Otherwise just attack enemies
+                else if (target.armyId !== soldier.armyId) {
+                  target.takeDamage(soldier.attackDamage);
+                }
+              }
+            } else {
+              soldier.attack(this.currentTarget);
+            }
           } else {
-            soldier.moveTowards(this.currentTarget.x, this.currentTarget.y, deltaTime);
+            // Berserker charges faster when low health
+            const speedMultiplier = (soldier.type === 'brezerker' && soldier.health < soldier.maxHealth * 0.2) ? 1.5 : 1;
+            soldier.moveTowards(this.currentTarget.x, this.currentTarget.y, deltaTime * speedMultiplier);
           }
         }
         break;

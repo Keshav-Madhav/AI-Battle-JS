@@ -8,6 +8,7 @@ export class Battle {
     this.isRunning = false;
     this.battleSpeed = 1;
     this.lastUpdateTime = 0;
+    this.berserkerRageThreshold = 0.3; // Health percentage when berserkers enrage
   }
 
   start(armyCount, soldiersPerArmy) {
@@ -39,13 +40,14 @@ export class Battle {
 
       this.createSoldiersForArmy(army, soldiersPerArmy, spawnX, spawnY, armyAngle);
     }
-  }  
+  }
 
   createSoldiersForArmy(army, count, spawnX, spawnY, armyAngle) {
     const soldierTypes = [
-      { type: 'melee', proportion: 0.7 },
+      { type: 'melee', proportion: 0.5 },
       { type: 'healer', proportion: 0.1 },
-      { type: 'archer', proportion: 0.2 }
+      { type: 'archer', proportion: 0.2 },
+      { type: 'brezerker', proportion: 0.2 }
     ];
     
     // Calculate counts for each type
@@ -60,9 +62,9 @@ export class Battle {
     let allocatedCount = typeCounts.reduce((sum, type) => sum + type.count, 0);
     let remaining = count - allocatedCount;
     
-    // Distribute remaining soldiers
+    // Distribute remaining soldiers to berserkers and melee
     for (let i = 0; i < remaining; i++) {
-      typeCounts[i % typeCounts.length].count++;
+      typeCounts[(i % 2 === 0) ? 0 : 3].count++; // Alternate between melee and berserkers
     }
     
     // Calculate direction vectors to the center
@@ -79,10 +81,9 @@ export class Battle {
     const perpY = normalizedDirX;
     
     // Dynamic formation calculation
-    const baseSpacing = 10; // Base distance between soldiers
+    const baseSpacing = 10;
     let spacing = baseSpacing;
     
-    // Adjust spacing based on army size
     if (count > 100) spacing = 10;
     if (count > 500) spacing = 5;
     if (count > 1000) spacing = 3;
@@ -105,7 +106,6 @@ export class Battle {
       'archer'
     );
     
-    // Calculate rows needed for archers
     const archerRows = Math.ceil(typeCounts[2].count / cols);
     rowOffset += archerRows;
     
@@ -122,9 +122,24 @@ export class Battle {
       'healer'
     );
     
-    // Calculate rows needed for healers
     const healerRows = Math.ceil(typeCounts[1].count / cols);
     rowOffset += healerRows;
+    
+    // Place berserkers in front of melee
+    this.placeSoldierGroup(
+      typeCounts[3].count, 
+      cols, 
+      rowOffset, 
+      spacing, 
+      spawnX, spawnY, 
+      perpX, perpY, 
+      normalizedDirX, normalizedDirY, 
+      army, 
+      'brezerker'
+    );
+    
+    const berserkerRows = Math.ceil(typeCounts[3].count / cols);
+    rowOffset += berserkerRows;
     
     // Place melee in front rows
     this.placeSoldierGroup(
@@ -146,18 +161,35 @@ export class Battle {
     
     while (soldierCount < count) {
       for (let col = 0; col < cols && soldierCount < count; col++) {
-        const colOffset = (col - cols / 2) * spacing;
+        // Berserkers get random positioning
+        const randomOffset = type === 'brezerker' ? 
+          (Math.random() * spacing * 0.5 - spacing * 0.25) : 0;
+          
+        const colOffset = (col - cols / 2) * spacing + randomOffset;
         const rowPos = rowOffset + row;
         
-        const x = spawnX + perpX * colOffset + normalizedDirX * rowPos * spacing;
-        const y = spawnY + perpY * colOffset + normalizedDirY * rowPos * spacing;
+        // Berserkers stand slightly forward
+        const forwardOffset = type === 'brezerker' ? spacing * 0.7 : 0;
+        
+        const x = spawnX + perpX * colOffset + normalizedDirX * (rowPos * spacing + forwardOffset);
+        const y = spawnY + perpY * colOffset + normalizedDirY * (rowPos * spacing + forwardOffset);
         
         const soldier = new Soldier(x, y, army.id, army.color, this.soldiers, type);
         
-        // Set the direction the soldier is facing (toward center)
+        // Berserkers face random directions near center
         const centerX = CANVAS_WIDTH / 2;
         const centerY = CANVAS_HEIGHT / 2;
-        soldier.direction = Math.atan2(centerY - y, centerX - x);
+        const randomAngle = type === 'brezerker' ? 
+          Math.atan2(centerY - y, centerX - x) + (Math.random() - 0.5) * 0.5 : 
+          Math.atan2(centerY - y, centerX - x);
+        
+        soldier.direction = randomAngle;
+        
+        // Store original stats for berserkers
+        if (type === 'brezerker') {
+          soldier.baseAttackDamage = soldier.attackDamage;
+          soldier.baseSpeed = soldier.speed;
+        }
         
         this.soldiers.push(soldier);
         soldierCount++;
@@ -183,7 +215,39 @@ export class Battle {
     
     deltaTime *= this.battleSpeed;
     
+    // Update berserker states
     this.soldiers.forEach(soldier => {
+      if (soldier.type === 'brezerker' && soldier.isAlive) {
+        // Check for rage state
+        const isEnraged = soldier.health < soldier.maxHealth * this.berserkerRageThreshold;
+        
+        if (isEnraged) {
+          // Increase stats when enraged
+          soldier.attackDamage = soldier.baseAttackDamage * 1.5;
+          soldier.speed = soldier.baseSpeed * 1.3;
+          soldier.attackRange = 15; // Slightly larger attack range when enraged
+          
+          // Chance to attack nearby allies when critically low
+          if (soldier.health < soldier.maxHealth * 0.1 && Math.random() < 0.1) {
+            const nearbyAllies = this.soldiers.filter(s => 
+              s.isAlive && 
+              s.armyId === soldier.armyId && 
+              s !== soldier &&
+              soldier.distanceTo(s) <= soldier.attackRange
+            );
+            
+            if (nearbyAllies.length > 0) {
+              soldier.attack(nearbyAllies[Math.floor(Math.random() * nearbyAllies.length)]);
+            }
+          }
+        } else {
+          // Reset to base stats
+          soldier.attackDamage = soldier.baseAttackDamage;
+          soldier.speed = soldier.baseSpeed;
+          soldier.attackRange = 10;
+        }
+      }
+      
       if (soldier.isAlive) {
         soldier.update(deltaTime, this.soldiers);
       }
@@ -202,15 +266,72 @@ export class Battle {
     }
   }
 
+  drawBerserkerEffects(ctx) {
+    this.soldiers.forEach(soldier => {
+      if (soldier.type === 'brezerker' && soldier.isAlive) {
+        const isEnraged = soldier.health < soldier.maxHealth * this.berserkerRageThreshold;
+        
+        if (isEnraged) {
+          // Rage aura
+          ctx.beginPath();
+          ctx.arc(soldier.x, soldier.y, soldier.size * 3, 0, Math.PI * 2);
+          const gradient = ctx.createRadialGradient(
+            soldier.x, soldier.y, soldier.size,
+            soldier.x, soldier.y, soldier.size * 3
+          );
+          gradient.addColorStop(0, 'rgba(255, 50, 50, 0.8)');
+          gradient.addColorStop(1, 'rgba(255, 0, 0, 0)');
+          ctx.fillStyle = gradient;
+          ctx.fill();
+          
+          // Rage text
+          ctx.fillStyle = 'white';
+          ctx.font = 'bold 12px Arial';
+          ctx.textAlign = 'center';
+          ctx.fillText('RAGE!', soldier.x, soldier.y - soldier.size - 12);
+          
+          // Blood particles
+          for (let i = 0; i < 3; i++) {
+            const angle = Math.random() * Math.PI * 2;
+            const dist = soldier.size + Math.random() * 15;
+            ctx.beginPath();
+            ctx.arc(
+              soldier.x + Math.cos(angle) * dist,
+              soldier.y + Math.sin(angle) * dist,
+              1 + Math.random() * 3,
+              0, Math.PI * 2
+            );
+            ctx.fillStyle = `rgba(200, 0, 0, ${0.5 + Math.random() * 0.5})`;
+            ctx.fill();
+          }
+        }
+      }
+    });
+  }
+
   getStats() {
     return this.armies.map(army => {
+      const armySoldiers = this.soldiers.filter(s => s.armyId === army.id);
+      const berserkers = armySoldiers.filter(s => s.type === 'brezerker');
+      const healers = armySoldiers.filter(s => s.type === 'healer');
+      const archers = armySoldiers.filter(s => s.type === 'archer');
+      const melee = armySoldiers.filter(s => s.type === 'melee');
+      const enragedBerserkers = berserkers.filter(s => 
+        s.health < s.maxHealth * this.berserkerRageThreshold
+      );
+      
       const percentage = (army.aliveCount / army.soldierCount * 100).toFixed(1);
       return {
         id: army.id,
         color: army.color,
         aliveCount: army.aliveCount,
         soldierCount: army.soldierCount,
-        percentage
+        percentage,
+        healerCount: healers.length,
+        archerCount: archers.length,
+        meleeCount: melee.length,
+        berserkerCount: berserkers.length,
+        enragedBerserkers: enragedBerserkers.length,
       };
     });
   }
