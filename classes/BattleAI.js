@@ -491,12 +491,12 @@ export class BattleAI {
     const criticalHealth = soldier.maxHealth * 0.1;
   
     if (soldier.health <= criticalHealth && chaserCount >= 2) {
-      let baseFlipChance = 0.2 + 0.1 * (chaserCount - 2);
+      let baseFlipChance = 0.3 + 0.1 * (chaserCount - 2);
       const allyPenalty = Math.min(allyFleeCount * 0.15, 0.5);
       const finalFlipChance = baseFlipChance * (1 - allyPenalty);
   
       if (Math.random() < finalFlipChance) {
-        const willingChasers = nearbyEnemies.filter(e => Math.random() < 0.4);
+        const willingChasers = nearbyEnemies.filter(e => Math.random() < 0.5);
         if (willingChasers.length > 0) {
           const newArmyId = willingChasers[0].armyId;
           soldier.armyId = newArmyId;
