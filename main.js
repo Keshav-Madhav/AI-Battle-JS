@@ -349,6 +349,8 @@ const draw = () => {
   }
 
   drawFPS(canvas.width, canvas.height, ctx);
+
+  requestAnimationFrame(draw);
 }
 
-createConstantFPSGameLoop(60, draw);
+draw();

@@ -45,8 +45,9 @@ export class Soldier {
       this.speed = 50;
       this.visionRange = 75;
       this.size = 6;
+      this.damageResistance = 0.15;
     } else if (type === 'tank') {
-      this.health = 400;
+      this.health = 275;
       this.attackDamage = 10;
       this.attackRange = 20;
       this.speed = 30;
@@ -54,6 +55,7 @@ export class Soldier {
       this.protectionRange = 100;
       this.tauntRange = 80;
       this.size = 5;
+      this.damageResistance = 0.3;
     }
 
     this.maxHealth = this.health;
@@ -146,7 +148,19 @@ export class Soldier {
   }
 
   takeDamage(amount) {
-    this.health -= amount;
+    let effectiveDamage = amount;
+
+    if (this.damageResistance) {
+      effectiveDamage *= (1 - this.damageResistance);
+    }
+
+    // Berserker special case: 50% damage resistance if health is below 20%
+    if (this.type === 'berserker' && this.health / this.maxHealth < 0.2) {
+      effectiveDamage *= 0.5;
+    }
+
+    this.health -= effectiveDamage;
+
     if (this.health <= 0) {
       this.health = 0;
       this.isAlive = false;
