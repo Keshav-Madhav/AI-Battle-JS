@@ -42,11 +42,15 @@ export class BattleAI {
       return;
     }
   
-    // Check if any melee is targeting this archer
-    if (soldier.type === 'archer') {
-      const pursuingMelee = enemies.find(e => e.type === 'melee' && e.currentTarget === soldier);
-      if (pursuingMelee) {
-        this.currentTarget = pursuingMelee;
+    // Archer shoot-flee logic when below 50% health
+    if (soldier.type === 'archer' && soldier.health < soldier.maxHealth * 0.5) {
+      const nearestEnemy = enemies.reduce((closest, enemy) => {
+        const dist = soldier.distanceTo(enemy);
+        return dist < closest.dist ? { enemy, dist } : closest;
+      }, { enemy: null, dist: Infinity });
+
+      if (nearestEnemy.enemy && nearestEnemy.dist <= soldier.visionRange) {
+        this.currentTarget = nearestEnemy.enemy;
         this.state = 'shoot-flee';
         return;
       }
@@ -332,25 +336,35 @@ export class BattleAI {
       case 'shoot-flee':
         if (this.currentTarget && this.currentTarget.isAlive) {
           const distance = soldier.distanceTo(this.currentTarget);
-          const halfSpeed = soldier.speed * 0.5;
-          const halfCooldown = soldier.attackCooldown * 2; // reduce firerate
-
+          let speedMultiplier = soldier.health < soldier.maxHealth * 0.5 ? 0.7 : 0.5;
+          
           if (distance <= soldier.attackRange) {
-            if (!soldier.lastAttackTime) soldier.lastAttackTime = 0;
-            soldier.lastAttackTime += deltaTime;
-            if (soldier.lastAttackTime >= halfCooldown) {
-              soldier.attack(this.currentTarget);
-              soldier.lastAttackTime = 0;
+            if (soldier.attack(this.currentTarget)) {
+              // Backpedal faster after shooting
+              speedMultiplier = 0.9;
             }
           }
-
-          // Move away while shooting
-          const dx = soldier.x - this.currentTarget.x;
-          const dy = soldier.y - this.currentTarget.y;
-          const mag = Math.sqrt(dx * dx + dy * dy);
-          const fleeX = soldier.x + (dx / mag) * 100;
-          const fleeY = soldier.y + (dy / mag) * 100;
-          soldier.moveTowards(fleeX, fleeY, deltaTime * 0.5); // half speed
+        
+          // Move away while maintaining attack range
+          const idealDistance = soldier.attackRange * 0.8;
+          if (distance < idealDistance) {
+            const dx = soldier.x - this.currentTarget.x;
+            const dy = soldier.y - this.currentTarget.y;
+            const mag = Math.sqrt(dx * dx + dy * dy);
+            const fleeX = soldier.x + (dx / mag) * idealDistance;
+            const fleeY = soldier.y + (dy / mag) * idealDistance;
+            soldier.moveTowards(fleeX, fleeY, deltaTime * speedMultiplier);
+          } else {
+            // Strafe sideways while retreating
+            const angle = Math.atan2(
+              this.currentTarget.y - soldier.y,
+              this.currentTarget.x - soldier.x
+            ) + (Math.random() - 0.5) * Math.PI/4;
+            
+            const strafeX = soldier.x - Math.cos(angle) * soldier.speed * deltaTime;
+            const strafeY = soldier.y - Math.sin(angle) * soldier.speed * deltaTime;
+            soldier.moveTowards(strafeX, strafeY, deltaTime * speedMultiplier);
+          }
         }
         break;
 
@@ -461,69 +475,155 @@ export class BattleAI {
 
   fleeFromThreat(soldier, deltaTime) {
     const nearbyEnemies = this.allSoldiers.filter(
-      s => s.isAlive && s.armyId !== soldier.armyId && soldier.distanceTo(s) < soldier.visionRange
+      s => s.isAlive && 
+      s.armyId !== soldier.armyId && 
+      soldier.distanceTo(s) < soldier.visionRange * 1.5
     );
   
-    const nearbyAllies = this.allSoldiers.filter(
-      s => s !== soldier && s.isAlive && s.armyId === soldier.armyId &&
-           soldier.distanceTo(s) < soldier.visionRange
+    // First priority: seek healers with path adjustment
+    const nearbyHealers = this.allSoldiers.filter(s => 
+      s.isAlive && 
+      s.armyId === soldier.armyId && 
+      s.type === 'healer' && 
+      soldier.distanceTo(s) < soldier.visionRange * 2
     );
   
-    // Seek nearby healers if any
-    const nearbyHealers = nearbyAllies.filter(ally => ally.type === 'healer');
     if (nearbyHealers.length > 0) {
-      const closestHealer = nearbyHealers.reduce((closest, healer) => {
-        const dist = soldier.distanceTo(healer);
-        return dist < closest.dist ? { healer, dist } : closest;
-      }, { healer: null, dist: Infinity });
-
-      if (closestHealer && closestHealer.dist > closestHealer.healer.healingRange - 5) {
-        soldier.moveTowards(closestHealer.healer.x, closestHealer.healer.y, deltaTime);
-        return;
-      } else {
-        return;
-      }
-    }
+      const closestHealer = nearbyHealers.reduce((closest, healer) => 
+        soldier.distanceTo(healer) < closest.dist ? 
+        { healer, dist: soldier.distanceTo(healer) } : closest,
+        { healer: null, dist: Infinity }
+      );
   
-    // 👇 Rest of the flee logic continues if no healer found
-    const chaserCount = nearbyEnemies.length;
-    const allyFleeCount = nearbyAllies.filter(s => s.ai?.state === 'flee').length;
-    const criticalHealth = soldier.maxHealth * 0.1;
+      if (closestHealer.healer) {
+        // Calculate path with enemy avoidance
+        const toHealerX = closestHealer.healer.x - soldier.x;
+        const toHealerY = closestHealer.healer.y - soldier.y;
+        const toHealerDist = Math.hypot(toHealerX, toHealerY);
+        
+        let desiredX = toHealerX / toHealerDist;
+        let desiredY = toHealerY / toHealerDist;
   
-    if (soldier.health <= criticalHealth && chaserCount >= 2) {
-      let baseFlipChance = 0.3 + 0.1 * (chaserCount - 2);
-      const allyPenalty = Math.min(allyFleeCount * 0.15, 0.5);
-      const finalFlipChance = baseFlipChance * (1 - allyPenalty);
+        // Add repulsion from nearby enemies
+        nearbyEnemies.forEach(enemy => {
+          const enemyDist = soldier.distanceTo(enemy);
+          const dx = soldier.x - enemy.x;
+          const dy = soldier.y - enemy.y;
+          const weight = 1 / Math.max(enemyDist, 1);
+          
+          desiredX += (dx / enemyDist) * weight;
+          desiredY += (dy / enemyDist) * weight;
+        });
   
-      if (Math.random() < finalFlipChance) {
-        const willingChasers = nearbyEnemies.filter(e => Math.random() < 0.5);
-        if (willingChasers.length > 0) {
-          const newArmyId = willingChasers[0].armyId;
-          soldier.armyId = newArmyId;
-          soldier.color = willingChasers[0].color;
-          soldier.ai.armyId = newArmyId;
-  
-          console.log(`🤝 Soldier flipped allegiance to Army ${newArmyId}`);
-          this.state = 'seek';
+        // Normalize direction
+        const dirLength = Math.hypot(desiredX, desiredY);
+        if (dirLength > 0) {
+          desiredX /= dirLength;
+          desiredY /= dirLength;
+          
+          const targetX = soldier.x + desiredX * 100;
+          const targetY = soldier.y + desiredY * 100;
+          soldier.moveTowards(targetX, targetY, deltaTime * 0.9);
           return;
         }
       }
     }
   
-    const avgEnemyX = nearbyEnemies.reduce((sum, e) => sum + e.x, 0) / nearbyEnemies.length || soldier.x;
-    const avgEnemyY = nearbyEnemies.reduce((sum, e) => sum + e.y, 0) / nearbyEnemies.length || soldier.y;
+    // Second priority: move towards strongest ally cluster
+    const nearbyAllies = this.allSoldiers.filter(
+      s => s !== soldier && 
+      s.isAlive && 
+      s.armyId === soldier.armyId && 
+      soldier.distanceTo(s) < soldier.visionRange * 2
+    );
   
-    const dx = soldier.x - avgEnemyX;
-    const dy = soldier.y - avgEnemyY;
-    const distance = Math.sqrt(dx * dx + dy * dy);
-    const safeDist = 150;
+    if (nearbyAllies.length > 0) {
+      // Find safest cluster (most allies in 100px radius)
+      const clusterMap = new Map();
+      nearbyAllies.forEach(ally => {
+        const key = `${Math.floor(ally.x/50)}-${Math.floor(ally.y/50)}`;
+        clusterMap.set(key, (clusterMap.get(key) || 0) + 1);
+      });
   
-    if (distance > safeDist) return;
+      const bestCluster = [...clusterMap.entries()].reduce((best, [key, count]) => 
+        count > best.count ? { key, count } : best, 
+        { key: null, count: 0 }
+      );
   
-    const fleeX = soldier.x + (dx / distance) * 100;
-    const fleeY = soldier.y + (dy / distance) * 100;
-    soldier.moveTowards(fleeX, fleeY, deltaTime);
-  }   
+      if (bestCluster.key) {
+        const [gridX, gridY] = bestCluster.key.split('-').map(Number);
+        const clusterCenter = {
+          x: (gridX * 50) + 25,
+          y: (gridY * 50) + 25
+        };
+        
+        // Move towards cluster center while avoiding enemies
+        let desiredX = clusterCenter.x - soldier.x;
+        let desiredY = clusterCenter.y - soldier.y;
+        const distToCluster = Math.hypot(desiredX, desiredY);
+        desiredX /= distToCluster;
+        desiredY /= distToCluster;
+  
+        nearbyEnemies.forEach(enemy => {
+          const enemyDist = soldier.distanceTo(enemy);
+          const dx = soldier.x - enemy.x;
+          const dy = soldier.y - enemy.y;
+          const weight = 1 / Math.max(enemyDist, 1);
+          
+          desiredX += (dx / enemyDist) * weight * 1.2;
+          desiredY += (dy / enemyDist) * weight * 1.2;
+        });
+  
+        const dirLength = Math.hypot(desiredX, desiredY);
+        if (dirLength > 0) {
+          desiredX /= dirLength;
+          desiredY /= dirLength;
+          soldier.moveTowards(
+            soldier.x + desiredX * 100,
+            soldier.y + desiredY * 100,
+            deltaTime * 0.85
+          );
+          return;
+        }
+      }
+    }
+  
+    // Final fallback: smart enemy avoidance
+    if (nearbyEnemies.length > 0) {
+      let desiredX = 0;
+      let desiredY = 0;
+  
+      // Calculate weighted flee direction
+      nearbyEnemies.forEach(enemy => {
+        const dx = soldier.x - enemy.x;
+        const dy = soldier.y - enemy.y;
+        const distance = Math.hypot(dx, dy);
+        const weight = 1 / (distance * distance);
+        
+        desiredX += (dx / distance) * weight;
+        desiredY += (dy / distance) * weight;
+      });
+  
+      // Add some random angle to avoid deadlocks
+      const angleVariation = Math.PI * 0.25;
+      const randAngle = (Math.random() - 0.5) * angleVariation;
+      const cos = Math.cos(randAngle);
+      const sin = Math.sin(randAngle);
+      const rotatedX = desiredX * cos - desiredY * sin;
+      const rotatedY = desiredX * sin + desiredY * cos;
+  
+      const dirLength = Math.hypot(rotatedX, rotatedY);
+      if (dirLength > 0) {
+        const targetX = soldier.x + (rotatedX / dirLength) * 200;
+        const targetY = soldier.y + (rotatedY / dirLength) * 200;
+        soldier.moveTowards(targetX, targetY, deltaTime * 0.8);
+        return;
+      }
+    }
+  
+    // Default wander behavior if no threats
+    this.handleWandering(soldier, deltaTime);
+  }
 
   handleWandering(soldier, deltaTime) {
     const centerX = canvas.width / 2;
