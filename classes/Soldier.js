@@ -46,6 +46,7 @@ export class Soldier {
       this.visionRange = 75;
       this.size = 6;
       this.damageResistance = 0.15;
+      this.berserkerRageThreshold = 0.3
     } else if (type === 'tank') {
       this.health = 275;
       this.attackDamage = 10;
@@ -171,6 +172,41 @@ export class Soldier {
     const dx = other.x - this.x;
     const dy = other.y - this.y;
     return Math.sqrt(dx * dx + dy * dy);
+  }
+
+  drawBerserkerEffects(ctx) {
+    let soldier = this;
+    ctx.beginPath();
+    ctx.arc(soldier.x, soldier.y, soldier.size * 3, 0, Math.PI * 2);
+    const gradient = ctx.createRadialGradient(
+      soldier.x, soldier.y, soldier.size,
+      soldier.x, soldier.y, soldier.size * 3
+    );
+    gradient.addColorStop(0, 'rgba(255, 50, 50, 0.8)');
+    gradient.addColorStop(1, 'rgba(255, 0, 0, 0)');
+    ctx.fillStyle = gradient;
+    ctx.fill();
+    
+    // Rage text
+    ctx.fillStyle = 'white';
+    ctx.font = 'bold 10px Arial';
+    ctx.textAlign = 'center';
+    ctx.fillText('RAGE!', soldier.x, soldier.y - soldier.size - 12);
+    
+    // Blood particles
+    for (let i = 0; i < 3; i++) {
+      const angle = Math.random() * Math.PI * 2;
+      const dist = soldier.size + Math.random() * 15;
+      ctx.beginPath();
+      ctx.arc(
+        soldier.x + Math.cos(angle) * dist,
+        soldier.y + Math.sin(angle) * dist,
+        1 + Math.random() * 3,
+        0, Math.PI * 2
+      );
+      ctx.fillStyle = `rgba(200, 0, 0, ${0.5 + Math.random() * 0.5})`;
+      ctx.fill();
+    }
   }
 
   drawSoldier(ctx) {
@@ -325,7 +361,8 @@ export class Soldier {
       ctx.stroke();
       
       // Rage effect
-      if (this.isAttacking) {
+      if (this.health / this.maxHealth < this.berserkerRageThreshold) {
+        this.drawBerserkerEffects(ctx);
         ctx.beginPath();
         ctx.arc(this.x, this.y, outerRadius + 2, 0, Math.PI * 2);
         ctx.strokeStyle = `rgba(255, 0, 0, ${0.5 * (1 - this.pulseSize)})`;

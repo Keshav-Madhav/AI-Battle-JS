@@ -201,11 +201,6 @@ function renderSoldiers(soldiers) {
       soldier.drawSoldier(ctx);
     }
   });
-  
-  // Draw berserker effects after all soldiers for proper layering
-  if (soldiers.some(s => s.type === 'berserker' && s.isAlive)) {
-    battle.drawBerserkerEffects(ctx);
-  }
 }
 
 function updateStats() {

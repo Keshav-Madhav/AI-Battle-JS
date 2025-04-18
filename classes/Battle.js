@@ -8,7 +8,6 @@ export class Battle {
     this.isRunning = false;
     this.battleSpeed = 1;
     this.lastUpdateTime = 0;
-    this.berserkerRageThreshold = 0.3; // Health percentage when berserkers enrage
   }
 
   start(armyCount, soldiersPerArmy) {
@@ -228,38 +227,7 @@ export class Battle {
     deltaTime *= this.battleSpeed;
     
     // Update berserker states
-    this.soldiers.forEach(soldier => {
-      if (soldier.type === 'berserker' && soldier.isAlive) {
-        // Check for rage state
-        const isEnraged = soldier.health < soldier.maxHealth * this.berserkerRageThreshold;
-        
-        if (isEnraged) {
-          // Increase stats when enraged
-          soldier.attackDamage = soldier.baseAttackDamage * 1.5;
-          soldier.speed = soldier.baseSpeed * 1.3;
-          soldier.attackRange = 15; // Slightly larger attack range when enraged
-          
-          // Chance to attack nearby allies when critically low
-          if (soldier.health < soldier.maxHealth * 0.1 && Math.random() < 0.1) {
-            const nearbyAllies = this.soldiers.filter(s => 
-              s.isAlive && 
-              s.armyId === soldier.armyId && 
-              s !== soldier &&
-              soldier.distanceTo(s) <= soldier.attackRange
-            );
-            
-            if (nearbyAllies.length > 0) {
-              soldier.attack(nearbyAllies[Math.floor(Math.random() * nearbyAllies.length)]);
-            }
-          }
-        } else {
-          // Reset to base stats
-          soldier.attackDamage = soldier.baseAttackDamage;
-          soldier.speed = soldier.baseSpeed;
-          soldier.attackRange = 10;
-        }
-      }
-      
+    this.soldiers.forEach(soldier => {      
       if (soldier.isAlive) {
         soldier.update(deltaTime, this.soldiers);
       }
@@ -278,49 +246,6 @@ export class Battle {
     }
   }
 
-  drawBerserkerEffects(ctx) {
-    this.soldiers.forEach(soldier => {
-      if (soldier.type === 'berserker' && soldier.isAlive) {
-        const isEnraged = soldier.health < soldier.maxHealth * this.berserkerRageThreshold;
-        
-        if (isEnraged) {
-          // Rage aura
-          ctx.beginPath();
-          ctx.arc(soldier.x, soldier.y, soldier.size * 3, 0, Math.PI * 2);
-          const gradient = ctx.createRadialGradient(
-            soldier.x, soldier.y, soldier.size,
-            soldier.x, soldier.y, soldier.size * 3
-          );
-          gradient.addColorStop(0, 'rgba(255, 50, 50, 0.8)');
-          gradient.addColorStop(1, 'rgba(255, 0, 0, 0)');
-          ctx.fillStyle = gradient;
-          ctx.fill();
-          
-          // Rage text
-          ctx.fillStyle = 'white';
-          ctx.font = 'bold 10px Arial';
-          ctx.textAlign = 'center';
-          ctx.fillText('RAGE!', soldier.x, soldier.y - soldier.size - 12);
-          
-          // Blood particles
-          for (let i = 0; i < 3; i++) {
-            const angle = Math.random() * Math.PI * 2;
-            const dist = soldier.size + Math.random() * 15;
-            ctx.beginPath();
-            ctx.arc(
-              soldier.x + Math.cos(angle) * dist,
-              soldier.y + Math.sin(angle) * dist,
-              1 + Math.random() * 3,
-              0, Math.PI * 2
-            );
-            ctx.fillStyle = `rgba(200, 0, 0, ${0.5 + Math.random() * 0.5})`;
-            ctx.fill();
-          }
-        }
-      }
-    });
-  }
-
   getStats() {
     return this.armies.map(army => {
       const armySoldiers = this.soldiers.filter(s => s.armyId === army.id);
@@ -330,7 +255,7 @@ export class Battle {
       const melee = armySoldiers.filter(s => s.type === 'melee');
       const tanks = armySoldiers.filter(s => s.type === 'tank');
       const enragedBerserkers = berserkers.filter(s => 
-        s.health < s.maxHealth * this.berserkerRageThreshold
+        s.health < s.maxHealth * s.berserkerRageThreshold
       );
       
       const percentage = (army.aliveCount / army.soldierCount * 100).toFixed(1);
